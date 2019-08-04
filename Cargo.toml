@@ -1,0 +1,58 @@
+[package]
+name = "mathilda"
+description = ""
+version = "0.0.1"
+authors = ["Christian Sdunek <me@systemcluster.me>"]
+edition = "2018"
+publish     = false
+license     = "unlicensed"
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+
+[[bin]]
+name = "mathilda"
+path = "src/main.rs"
+
+[profile.dev]
+opt-level = 0
+panic = "unwind"
+debug = true
+debug-assertions = true
+
+[profile.test]
+opt-level = 1
+debug = true
+debug-assertions = true
+
+[profile.release]
+opt-level = 3
+panic = "abort"
+debug = false
+debug-assertions = false
+lto = "thin" 
+
+
+[dependencies]
+# graphics crates
+wgpu = {package="wgpu", git="https://github.com/gfx-rs/wgpu-rs.git", features=["dx12"]}
+nalgebra = { version = "0.18.0", features = ["mint"] }
+spirv-reflect = "0.2.1"
+shaderc = "0.6.0"
+image = "0.22.1"
+#lyon = "0.14.0"
+#rusttype = "0.7.7"
+# sys crates
+derive_more = "0.15.0"
+log = "0.4.7"
+env_logger = "0.6.2"
+pretty_env_logger = "0.3.0"
+color-backtrace = "0.2.2"
+raw-cpuid = "6.1.0"
+# util crates
+serde = { version = "1.0.97", features = ["derive"] }
+#warmy = "0.12.0"
+failure = "0.1.5"
+itertools = "0.8.0"
+rand = "0.7.0"
+dirs = "2.0.1"
+chrono = "0.4.7"
