@@ -27,7 +27,6 @@
 	external_doc,
 	exclusive_range_pattern,
 	exhaustive_patterns,
-	existential_type,
 	extern_types,
 	fundamental,
 	generators,
@@ -65,6 +64,7 @@
 	trait_alias,
 	trivial_bounds,
 	try_blocks,
+	type_alias_impl_trait,
 	type_ascription,
 	unboxed_closures,
 	unsized_locals,
@@ -146,9 +146,9 @@ extern crate raw_cpuid;
 use chrono;
 use color_backtrace;
 use env_logger;
+use itertools::*;
 use log::*;
 use pretty_env_logger;
-use itertools::*;
 
 use image;
 use shaderc;
@@ -164,7 +164,10 @@ fn main() {
 		use color_backtrace::*;
 		use std::io::prelude::*;
 		create_panic_handler(Settings::default())(panic);
-		if let Ok(mut file) = std::fs::File::create(format!("crash-{}.txt", chrono::Local::now().format("%Y-%m-%d-%H%M%S%z"))) {
+		if let Ok(mut file) = std::fs::File::create(format!(
+			"crash-{}.txt",
+			chrono::Local::now().format("%Y-%m-%d-%H%M%S%z")
+		)) {
 			let _ = writeln!(file, "System information:");
 			let cpuid = raw_cpuid::CpuId::new();
 			if let Some(extended_function_info) = cpuid.get_extended_function_info() {
@@ -173,9 +176,9 @@ fn main() {
 				}
 			}
 			let _ = writeln!(file);
-			create_panic_handler(Settings::new().output_stream(
-				std::boxed::Box::new(StreamOutput::new(file))
-			))(panic);
+			create_panic_handler(
+				Settings::new().output_stream(std::boxed::Box::new(StreamOutput::new(file))),
+			)(panic);
 		}
 	}));
 
@@ -199,7 +202,7 @@ fn main() {
 	let window_title = "mathilda";
 	let window = WindowBuilder::new()
 		.with_resizable(true)
-		.with_dimensions((1000, 1000).into())
+		.with_dimensions((1024, 1024).into())
 		.with_min_dimensions((600, 600).into())
 		.with_title(window_title)
 		.with_window_icon(Some(
@@ -230,50 +233,64 @@ fn main() {
 		format: wgpu::TextureFormat::Rgba8Unorm,
 		width: window_size.width.round() as u32,
 		height: window_size.height.round() as u32,
-		present_mode: wgpu::PresentMode::Vsync,
+		present_mode: wgpu::PresentMode::NoVsync,
 	};
 	let mut swap_chain = device.create_swap_chain(&surface, &swap_chain_descriptor);
-
 
 	let mut renderer = renderer::Renderer::init(&swap_chain_descriptor, &mut device);
 
 	if let Err(ref e) = renderer {
-		error!("{}", e);
-	}
-	else {
+		error!("Error initializing renderer:\n{}", e);
+	} else {
 		info!("renderer ok!")
 	}
-
 
 	let mut window_has_focus = true;
 	let mut recreate_pipeline = false;
 	let mut recreate_swapchain = false;
 	let mut paused = false;
-	
-	let mut time = 0f32;
 	let mut time_frame_coll = std::collections::VecDeque::new();
 	let mut time_start = chrono::Utc::now().naive_utc().time();
 	let mut time_frame_accum = 0f32;
-	
-	let mut mode = 0i32;
-	let mut subregion = [0f32, 0f32, 1f32, 1f32];
-	let mut offset = [0f32, 0f32];
+	let time_smoothing_frames = 100usize;
+	let time_update_ms = 100f32;
+	let mut args = renderer::RendererArgs {
+		time: 0f32,
+		mode: 0i32,
+		subregion: [0f32, 0f32, 1f32, 1f32],
+		offset: [0f32, 0f32],
+		level: 0.5f32,
+	};
+	let mut args_prev = args;
 
 	loop {
 		let time_now = chrono::Utc::now().naive_utc().time();
-		let time_frame = (time_now.signed_duration_since(time_start).num_microseconds().unwrap() as f64 / 1000.0) as f32;
+		let time_frame = (time_now
+			.signed_duration_since(time_start)
+			.num_microseconds()
+			.unwrap() as f64
+			/ 1000.0) as f32;
 		time_start = time_now;
 		if !paused {
-			time += time_frame;
+			args.time += time_frame;
 		}
 		time_frame_coll.push_back(time_frame);
 		time_frame_accum += time_frame;
-		if time_frame_accum >= 100f32 {
-			let ms = time_frame_coll.iter().fold(0f32, |sum, val| sum + val) / time_frame_coll.len() as f32;
-			window.set_title(format!("{} ({:.1} fps / {:.3} ms)", window_title, 1.0 / (ms / 1000f32), ms).as_str());
+		if time_frame_accum >= time_update_ms {
+			let ms = time_frame_coll.iter().fold(0f32, |sum, val| sum + val)
+				/ time_frame_coll.len() as f32;
+			window.set_title(
+				format!(
+					"{} ({:.1} fps / {:.3} ms)",
+					window_title,
+					1.0 / (ms / 1000f32),
+					ms
+				)
+				.as_str(),
+			);
 			time_frame_accum = 0f32;
 		}
-		if time_frame_coll.len() >= 250 {
+		if time_frame_coll.len() >= time_smoothing_frames {
 			time_frame_coll.pop_front();
 		}
 
@@ -289,13 +306,13 @@ fn main() {
 					window_id,
 				} if window_id == window.id() => {
 					recreate_swapchain = true;
-				},
+				}
 				Event::WindowEvent {
 					event: WindowEvent::Focused(focused),
 					window_id,
 				} if window_id == window.id() => {
 					window_has_focus = focused;
-				},
+				}
 				Event::DeviceEvent {
 					event: DeviceEvent::Key(input),
 					..
@@ -309,67 +326,74 @@ fn main() {
 							paused = !paused;
 						}
 						Some(Key0) => {
-							mode = 0;
+							args.mode = 0;
 						}
 						Some(Key1) => {
-							mode = 1;
+							args.mode = 1;
 						}
 						Some(Key2) => {
-							mode = 2;
+							args.mode = 2;
 						}
 						Some(Key3) => {
-							mode = 3;
+							args.mode = 3;
 						}
 						Some(Key4) => {
-							mode = 4;
+							args.mode = 4;
 						}
 						Some(Key5) => {
-							mode = 5;
+							args.mode = 5;
 						}
 						Some(Key6) => {
-							mode = 6;
+							args.mode = 6;
 						}
 						Some(PageUp) => {
-							subregion = [
-								subregion[0] - 0.025 % 1.0,
-								subregion[1] - 0.025 % 1.0,
-								subregion[2] + 0.025 % 1.0,
-								subregion[3] + 0.025 % 1.0,
+							args.subregion = [
+								args.subregion[0] - 0.025 % 1.0,
+								args.subregion[1] - 0.025 % 1.0,
+								args.subregion[2] + 0.025 % 1.0,
+								args.subregion[3] + 0.025 % 1.0,
 							];
 						}
 						Some(PageDown) => {
-							subregion = [
-								subregion[0] + 0.025 % 1.0,
-								subregion[1] + 0.025 % 1.0,
-								subregion[2] - 0.025 % 1.0,
-								subregion[3] - 0.025 % 1.0,
+							args.subregion = [
+								args.subregion[0] + 0.025 % 1.0,
+								args.subregion[1] + 0.025 % 1.0,
+								args.subregion[2] - 0.025 % 1.0,
+								args.subregion[3] - 0.025 % 1.0,
 							];
 						}
+						Some(Home) => {
+							args.level = nalgebra::clamp(args.level + 0.02, 0f32, 1f32);
+						}
+						Some(End) => {
+							args.level = nalgebra::clamp(args.level - 0.02, 0f32, 1f32);
+						}
 						Some(Delete) => {
-							subregion = [0f32, 0f32, 1f32, 1f32];
+							args.subregion = [0f32, 0f32, 1f32, 1f32];
 						}
 						Some(Up) => {
-							offset[1] -= 0.01;
+							args.offset[1] -= 0.01;
 						}
 						Some(Down) => {
-							offset[1] += 0.01;
+							args.offset[1] += 0.01;
 						}
 						Some(Left) => {
-							offset[0] -= 0.01;
+							args.offset[0] -= 0.01;
 						}
 						Some(Right) => {
-							offset[0] += 0.01;
+							args.offset[0] += 0.01;
 						}
-						_ => ()
+						_ => (),
 					}
-				},
+				}
 				Event::DeviceEvent {
-					event: DeviceEvent::MouseWheel {
-						delta: winit::MouseScrollDelta::LineDelta(_, y),
-					},
+					event:
+						DeviceEvent::MouseWheel {
+							delta: winit::MouseScrollDelta::LineDelta(_, y),
+						},
 					..
 				} if window_has_focus => {
-					time += y * 50f32;
+					args.time += y * 50f32;
 				}
 				_ => (),
 			};
@@ -381,22 +405,19 @@ fn main() {
 		if recreate_pipeline {
 			renderer = renderer::Renderer::init(&swap_chain_descriptor, &mut device);
 			if let Err(ref e) = renderer {
-				error!("{}", e);
-			}
-			else {
+				error!("Error initializing renderer:\n{}", e);
+			} else {
 				info!("renderer ok!")
 			}
 			recreate_pipeline = false;
 		}
-		let args = renderer::RendererArgs {
-			time,
-			mode,
-			subregion,
-			offset
-		};
 		if let Ok(ref mut r) = renderer {
+			if args != args_prev {
+				args_prev = args;
+				r.regenerate(&mut device, args);
+			}
 			let frame = swap_chain.get_next_texture();
-			r.render(&frame.view, &mut device, args);
+			r.render(&mut device, &frame.view);
 		}
 	}
 }

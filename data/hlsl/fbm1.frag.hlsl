@@ -3,6 +3,7 @@ cbuffer GlobalBuffer: register(b0) {
 	float2 offset;
 	float time;
 	int mode;
+	float level;
 };
 
 struct Input {
@@ -11,7 +12,7 @@ struct Input {
 };
 
 struct Output {
-	float value : SV_TARGET0;
+	float4 value : SV_TARGET0;
 };
 
 #include "noise/util.hlsl"
@@ -37,11 +38,10 @@ Output main(Input input) {
 		cos(time / 10000 / 100 + 100) * 100, 
 		time / 12000
 	);
-	float2 position = input.uv.xy * 0.5 + 0.5;
 
+	float2 position = input.uv.xy * 0.5 + 0.5;
 	position = float2(position.x * (subregion.z - subregion.x) + subregion.x, position.y * (subregion.w - subregion.y) + subregion.y);
 	position += offset;
-
 	if (mode == 2) {
 		float pos_mod = 0.005 * (subregion.z - subregion.x);
 		position = trunc(position / pos_mod) * pos_mod;
@@ -99,6 +99,7 @@ Output main(Input input) {
 	hv = clamp(hv, 0.0, 1.0);
 
 
-	o.value = hv;
+	o.value = float4(0);
+	o.value.x = hv;
 	return o;
 }

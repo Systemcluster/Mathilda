@@ -32,6 +32,8 @@
             "command": "cargo",
             "args": [
                 "run",
+                "--bin",
+                "mathilda"
             ],
             "options": {
                 "cwd": "${workspaceFolder}",

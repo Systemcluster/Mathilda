@@ -8,10 +8,13 @@ publish     = false
 license     = "unlicensed"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-
 [[bin]]
 name = "mathilda"
 path = "src/main.rs"
+[[bin]]
+name = "mathilda-gen"
+path = "src/main_gen.rs"
+
 
 [profile.dev]
 opt-level = 0
@@ -34,7 +37,7 @@ lto = "thin"
 
 [dependencies]
 # graphics crates
-wgpu = {package="wgpu", git="https://github.com/gfx-rs/wgpu-rs.git", features=["dx12"]}
+wgpu = { package="wgpu", git="https://github.com/gfx-rs/wgpu-rs.git", branch="master", features=["dx12"] }
 nalgebra = { version = "0.18.0", features = ["mint"] }
 spirv-reflect = "0.2.1"
 shaderc = "0.6.0"
