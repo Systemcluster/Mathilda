@@ -158,6 +158,8 @@ use winit::{ControlFlow, DeviceEvent, Event, EventsLoop, WindowBuilder, WindowEv
 
 #[path = "./renderer.rs"]
 mod renderer;
+#[path = "./planner.rs"]
+mod planner;
 
 fn main() {
 	std::panic::set_hook(std::boxed::Box::new(move |panic| {
@@ -193,6 +195,7 @@ fn main() {
 		.init();
 
 	info!("Hello World!");
+	planner::plan();
 
 	let icon = image::open(std::path::Path::new("./data/evil2.png")).unwrap();
 	let icon = icon.as_rgba8().unwrap();
