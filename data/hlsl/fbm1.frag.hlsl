@@ -33,11 +33,11 @@ Output main(Input input) {
 
 
 	float4 seed = float4(
-		time / 8000, 
-		sin(time / 10000 / 100 - 100) * 100, 
-		cos(time / 10000 / 100 + 100) * 100, 
 		time / 12000
-	);
+		// sin(time / 10000 / 100 - 100) * 100, 
+		// cos(time / 10000 / 100 + 100) * 100, 
+		// time / 12000
+	) + 0.025;
 
 	float2 position = input.uv.xy * 0.5 + 0.5;
 	position = float2(position.x * (subregion.z - subregion.x) + subregion.x, position.y * (subregion.w - subregion.y) + subregion.y);

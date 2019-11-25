@@ -7,6 +7,7 @@ use wgpu;
 
 #[derive(Debug, Clone, Display)]
 pub enum RendererError {
+	NotInitialized,
 	ShaderCompilationError(String),
 	RendererInitError(String),
 }
@@ -66,7 +67,7 @@ pub struct Renderer<'a> {
 impl<'a> Renderer<'a> {
 	pub fn init(
 		swap_chain_descriptor: &wgpu::SwapChainDescriptor,
-		device: &mut wgpu::Device,
+		device: &wgpu::Device,
 	) -> Result<Self, RendererError> {
 		let mut compiler = shaderc::Compiler::new().unwrap();
 		let mut options = shaderc::CompileOptions::new().unwrap();
@@ -131,7 +132,7 @@ impl<'a> Renderer<'a> {
 		let uniform_buf = device
 			.create_buffer_mapped::<RendererArgs>(
 				1,
-				wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::TRANSFER_DST,
+				wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
 			)
 			.finish();
 
@@ -151,19 +152,21 @@ impl<'a> Renderer<'a> {
 		let texture_view = texture.create_default_view();
 		// let texture_buf = device.create_buffer(&wgpu::BufferDescriptor {
 		// 	size: ((1024 * 1024) * std::mem::size_of::<f32>()) as u64,
-		// 	usage: wgpu::BufferUsage::MAP_READ | wgpu::BufferUsage::TRANSFER_DST
+		// 	usage: wgpu::BufferUsage::MAP_READ | wgpu::BufferUsage::COPY_DST
 		// });
 
 		// let init_encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
 
-		// pipeline generate
+		// pipeline: generate
 		let (bind_group_generate, pipeline_generate) = {
 			let bind_group_layout_generate =
 				device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
 					bindings: &[wgpu::BindGroupLayoutBinding {
 						binding: 0,
 						visibility: wgpu::ShaderStage::FRAGMENT,
-						ty: wgpu::BindingType::UniformBuffer,
+						ty: wgpu::BindingType::UniformBuffer {
+							dynamic: false
+						},
 					}],
 				});
 			let pipeline_layout_generate =
@@ -183,21 +186,21 @@ impl<'a> Renderer<'a> {
 			let pipeline_generate =
 				device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
 					layout: &pipeline_layout_generate,
-					vertex_stage: wgpu::PipelineStageDescriptor {
+					vertex_stage: wgpu::ProgrammableStageDescriptor {
 						module: &vs_module,
 						entry_point: "main",
 					},
-					fragment_stage: Some(wgpu::PipelineStageDescriptor {
+					fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
 						module: &fs_module_generate,
 						entry_point: "main",
 					}),
-					rasterization_state: wgpu::RasterizationStateDescriptor {
+					rasterization_state: Some(wgpu::RasterizationStateDescriptor {
 						front_face: wgpu::FrontFace::Ccw,
 						cull_mode: wgpu::CullMode::Back,
 						depth_bias: 0,
 						depth_bias_slope_scale: 0.0,
 						depth_bias_clamp: 0.0,
-					},
+					}),
 					primitive_topology: wgpu::PrimitiveTopology::TriangleList,
 					color_states: &[wgpu::ColorStateDescriptor {
 						format: wgpu::TextureFormat::Rgba32Float,
@@ -209,11 +212,13 @@ impl<'a> Renderer<'a> {
 					index_format: wgpu::IndexFormat::Uint16,
 					vertex_buffers: &[],
 					sample_count: 1,
+					alpha_to_coverage_enabled: false,
+					sample_mask: 0
 				});
 			(bind_group_generate, pipeline_generate)
 		};
 
-		// pipeline modify
+		// pipeline: modify
 		let (bind_group_modify, pipeline_modify) = {
 			let bind_group_layout_modify =
 				device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -221,12 +226,16 @@ impl<'a> Renderer<'a> {
 						wgpu::BindGroupLayoutBinding {
 							binding: 0,
 							visibility: wgpu::ShaderStage::COMPUTE,
-							ty: wgpu::BindingType::UniformBuffer,
+							ty: wgpu::BindingType::UniformBuffer {
+								dynamic: false
+							},
 						},
 						wgpu::BindGroupLayoutBinding {
 							binding: 1,
 							visibility: wgpu::ShaderStage::COMPUTE,
-							ty: wgpu::BindingType::StorageTexture,
+							ty: wgpu::BindingType::StorageTexture {
+								dimension: wgpu::TextureViewDimension::D2
+							},
 						},
 					],
 				});
@@ -253,7 +262,7 @@ impl<'a> Renderer<'a> {
 			let pipeline_modify =
 				device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
 					layout: &pipeline_layout_modify,
-					compute_stage: wgpu::PipelineStageDescriptor {
+					compute_stage: wgpu::ProgrammableStageDescriptor {
 						module: &cs_module,
 						entry_point: "main",
 					},
@@ -261,7 +270,7 @@ impl<'a> Renderer<'a> {
 			(bind_group_modify, pipeline_modify)
 		};
 
-		// pipeline output
+		// pipeline: output
 		let (bind_group_output, pipeline_output) = {
 			let bind_group_layout_output =
 				device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -269,12 +278,17 @@ impl<'a> Renderer<'a> {
 						wgpu::BindGroupLayoutBinding {
 							binding: 0,
 							visibility: wgpu::ShaderStage::FRAGMENT,
-							ty: wgpu::BindingType::UniformBuffer,
+							ty: wgpu::BindingType::UniformBuffer {
+								dynamic: false
+							},
 						},
 						wgpu::BindGroupLayoutBinding {
 							binding: 1,
 							visibility: wgpu::ShaderStage::FRAGMENT,
-							ty: wgpu::BindingType::SampledTexture,
+							ty: wgpu::BindingType::SampledTexture {
+								multisampled: false,
+								dimension: wgpu::TextureViewDimension::D2,
+							},
 						},
 						wgpu::BindGroupLayoutBinding {
 							binding: 2,
@@ -321,21 +335,21 @@ impl<'a> Renderer<'a> {
 			});
 			let pipeline_output = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
 				layout: &pipeline_layout_output,
-				vertex_stage: wgpu::PipelineStageDescriptor {
+				vertex_stage: wgpu::ProgrammableStageDescriptor {
 					module: &vs_module,
 					entry_point: "main",
 				},
-				fragment_stage: Some(wgpu::PipelineStageDescriptor {
+				fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
 					module: &fs_module_output,
 					entry_point: "main",
 				}),
-				rasterization_state: wgpu::RasterizationStateDescriptor {
+				rasterization_state: Some(wgpu::RasterizationStateDescriptor {
 					front_face: wgpu::FrontFace::Ccw,
 					cull_mode: wgpu::CullMode::Back,
 					depth_bias: 0,
 					depth_bias_slope_scale: 0.0,
 					depth_bias_clamp: 0.0,
-				},
+				}),
 				primitive_topology: wgpu::PrimitiveTopology::TriangleList,
 				color_states: &[wgpu::ColorStateDescriptor {
 					format: swap_chain_descriptor.format,
@@ -347,12 +361,14 @@ impl<'a> Renderer<'a> {
 				index_format: wgpu::IndexFormat::Uint16,
 				vertex_buffers: &[],
 				sample_count: 1,
+				alpha_to_coverage_enabled: false,
+				sample_mask: 0
 			});
 			(bind_group_output, pipeline_output)
 		};
 
 		// let init_command_buffer = init_encoder.finish();
-		// device.get_queue().submit(&[init_command_buffer]);
+		// queue.submit(&[init_command_buffer]);
 		Ok(Self {
 			bind_group_generate,
 			bind_group_modify,
@@ -367,11 +383,11 @@ impl<'a> Renderer<'a> {
 		})
 	}
 
-	pub fn regenerate(&mut self, device: &mut wgpu::Device, args: RendererArgs) {
+	pub fn regenerate(&mut self, device: &wgpu::Device, queue: &mut wgpu::Queue, args: RendererArgs) {
 		let mut encoder =
 			device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
 		let args_buf = device
-			.create_buffer_mapped::<RendererArgs>(1, wgpu::BufferUsage::TRANSFER_SRC)
+			.create_buffer_mapped::<RendererArgs>(1, wgpu::BufferUsage::COPY_SRC)
 			.fill_from_slice(&[args]);
 		encoder.copy_buffer_to_buffer(
 			&args_buf,
@@ -408,10 +424,10 @@ impl<'a> Renderer<'a> {
 			compute_pass.set_bind_group(0, &self.bind_group_modify, &[]);
 			compute_pass.dispatch(64, 64, 1);
 		}
-		device.get_queue().submit(&[encoder.finish()]);
+		queue.submit(&[encoder.finish()]);
 	}
 
-	pub fn render(&mut self, device: &mut wgpu::Device, view: &wgpu::TextureView) {
+	pub fn render(&mut self, device: &wgpu::Device, queue: &mut wgpu::Queue, view: &wgpu::TextureView) {
 		let mut encoder =
 			device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
 		// render pass to screen
@@ -435,6 +451,6 @@ impl<'a> Renderer<'a> {
 			render_pass.set_bind_group(0, &self.bind_group_output, &[]);
 			render_pass.draw(0..6, 0..1);
 		}
-		device.get_queue().submit(&[encoder.finish()]);
+		queue.submit(&[encoder.finish()]);
 	}
 }
