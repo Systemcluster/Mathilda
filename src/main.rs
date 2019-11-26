@@ -235,8 +235,8 @@ fn main() {
 		.init();
 
 	info!("Hello World!");
-	planner::plan();
-	return;
+	// planner::plan();
+	// return;
 
 	let eventloop = EventLoop::new();
 	let window_title = "mathilda";
@@ -245,8 +245,7 @@ fn main() {
 	let surface = wgpu::Surface::create(&window);
 	let adapter = wgpu::Adapter::request(&wgpu::RequestAdapterOptions {
 		power_preference: wgpu::PowerPreference::Default,
-		backends: wgpu::BackendBit::PRIMARY,
-	})
+	}, wgpu::BackendBit::PRIMARY)
 	.unwrap();
 
 	std::panic::set_hook(create_panic_hook(Some(adapter.get_info())));

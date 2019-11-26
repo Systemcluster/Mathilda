@@ -4,6 +4,7 @@ use derive_more::*;
 use shaderc;
 use spirv_reflect;
 use wgpu;
+use zerocopy::{AsBytes, FromBytes};
 
 #[derive(Debug, Clone, Display)]
 pub enum RendererError {
@@ -39,7 +40,7 @@ fn compile_shader(
 	Ok(shader)
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, AsBytes, FromBytes)]
 #[repr(C, packed)]
 pub struct RendererArgs {
 	pub subregion: [f32; 4],
@@ -130,8 +131,8 @@ impl<'a> Renderer<'a> {
 		// }
 
 		let uniform_buf = device
-			.create_buffer_mapped::<RendererArgs>(
-				1,
+			.create_buffer_mapped(
+				std::mem::size_of::<RendererArgs>(),
 				wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
 			)
 			.finish();
@@ -386,10 +387,8 @@ impl<'a> Renderer<'a> {
 	pub fn regenerate(&mut self, device: &wgpu::Device, queue: &mut wgpu::Queue, args: RendererArgs) {
 		let mut encoder =
 			device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
-		let args_buf = device
-			.create_buffer_mapped::<RendererArgs>(1, wgpu::BufferUsage::COPY_SRC)
-			.fill_from_slice(&[args]);
-		encoder.copy_buffer_to_buffer(
+		let args_buf = device.create_buffer_with_data(&[args].as_bytes(), wgpu::BufferUsage::COPY_SRC);
+			encoder.copy_buffer_to_buffer(
 			&args_buf,
 			0u64,
 			&self.uniform_buf,
