@@ -37,21 +37,30 @@ struct Item;
 
 struct Action<'n> {
 	name: &'n str,
-	check_actor_admissible: Box<dyn Fn(&World, Entity) -> bool>,
+	distance: Box<dyn Fn(&World, Entity) -> f32>,
 	simulate: Box<dyn Fn(&mut World, Entity, Entity) -> ()>,
-	get_available_targets: Box<dyn Fn(&mut World) -> Vec<Entity>>,
+	targets: Box<dyn Fn(&mut World) -> Vec<Entity>>,
 }
 
 pub fn plan() {
 	let universe = Universe::new();
 	let mut world = universe.create_world();
-	world.insert((Actor,), vec![(Vitality { health: 10.0 },)]);
+	world.insert(
+		(Actor,),
+		vec![(Vitality { health: 10.0 }, Position { x: 0.0, y: 0.0 })],
+	);
 
 	let actions = vec![Action {
 		name: "Heal",
-		check_actor_admissible: box |world, actor| world.get_component::<Vitality>(actor).is_some(),
+		distance: box |world, actor| {
+			if world.get_component::<Vitality>(actor).is_some() {
+				0.0
+			} else {
+				1.0
+			}
+		},
 		simulate: box |world, actor, target| {},
-		get_available_targets: box |world| {
+		targets: box |world| {
 			let mut query = <(Write<Vitality>,)>::query();
 			query
 				.iter_entities(world)
@@ -60,17 +69,17 @@ pub fn plan() {
 		},
 	}];
 
-	let entities = <(Tagged<Actor>,)>::query()
+	let entities = <(Tagged<Actor>, Read<Position>)>::query()
 		.iter_entities(&mut world)
 		.map(|t| t.0)
 		.collect::<Vec<Entity>>();
 	for actor in entities {
 		for action in &actions {
-			let admissible = (action.check_actor_admissible)(&world, actor);
+			let admissible = (action.distance)(&world, actor) == 0.0;
 			if !admissible {
 				continue;
 			}
-			let targets = (action.get_available_targets)(&mut world);
+			let targets = (action.targets)(&mut world);
 			println!("target {:?} for {:?}", targets, actor);
 		}
 	}

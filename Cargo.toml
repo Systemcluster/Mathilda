@@ -39,25 +39,33 @@ lto = "thin"
 # sys crates
 derive_more = "0.99.2"
 log = "0.4.8"
-pretty_env_logger = { git = "https://github.com/seanmonstar/pretty-env-logger" }
-#pretty_env_logger = { path = "../pretty-env-logger" }
 color-backtrace = "0.3.0"
 raw-cpuid = "7.0.3"
+simple_logger = "1.5.0"
 
 # util crates
-serde = { version = "1.0.103", features = ["derive"] }
+serde = { version = "1.0.104", features = ["derive"] }
 #warmy = "^0.12"
 failure = "0.1.6"
 itertools = "0.8.2"
-rand = "0.7.2"
+rand = "0.7.3"
 dirs = "2.0.2"
 chrono = "0.4.10"
 specs = "0.15.1"
-priority-queue = "0.6.0"
-pathfinding = "2.0.0"
+priority-queue = "0.7.0"
+pathfinding = "2.0.4"
 derivative = "1.0.3"
 tokio = { git="https://github.com/tokio-rs/tokio" }
 legion = { git = "https://github.com/TomGillen/legion" }
+petgraph = "0.5.0"
+zerocopy = "0.2.8"
+derive-new = "0.5.8"
+smart-default = "0.6.0"
+cascade = "0.1.4"
+multimap = "0.8.0"
+parking_lot = "0.10.0"
+objekt-clonable = "0.2.2"
+anymap = { git="https://github.com/chris-morgan/anymap" }
 
 # graphics crates
 wgpu = { package="wgpu", git="https://github.com/gfx-rs/wgpu-rs", branch="master" }
@@ -65,8 +73,6 @@ winit = { git="https://github.com/rust-windowing/winit", branch="master" }
 nalgebra = { version = "0.19.0", features = ["mint"] }
 spirv-reflect = "0.2.3"
 shaderc = "0.6.1"
-image = "0.22.3"
-petgraph = "0.4.13"
-zerocopy = "0.2.8"
+image = "0.23.0"
 #lyon = "^0.14"
 #rusttype = "^0.7"

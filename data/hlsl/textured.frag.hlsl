@@ -1,4 +1,4 @@
-cbuffer GlobalBuffer: register(b0) {
+cbuffer GlobalBuffer : register(b0) {
 	float4 subregion;
 	float2 offset;
 	float time;
@@ -19,7 +19,7 @@ struct Output {
 
 Output main(Input input) {
 	Output o;
-	
+
 	float2 position = input.uv.xy * 0.5 + 0.5;
 	position = float2(position.x * (subregion.z - subregion.x) + subregion.x, position.y * (subregion.w - subregion.y) + subregion.y);
 	position += offset;
@@ -76,21 +76,20 @@ Output main(Input input) {
 	static const float PI2 = 6.283185307179586476925286766559f;
 	static const float PI = PI2 / 2.0;
 
-	float zone = sin(position.y * PI2 * 3 + PI/2);
+	float zone = sin(position.y * PI2 * 3 + PI / 2);
 	float pressure = (zone);
-	float direction = abs(sin(position.y * PI2 + PI/2)) * 2 - 1;
-	
+	float direction = abs(sin(position.y * PI2 + PI / 2)) * 2 - 1;
+
 	float speed = direction * (pressure * 0.5 + 0.5);
-	
+
 	if (mode == 3) {
-		output = (float3(-1.0,  -1.0, speed) * 0.5 + 0.5);
+		output = (float3(-1.0, -1.0, speed) * 0.5 + 0.5);
 	}
 
 	if (mode == 4) {
-		output = (float3(pressure, -1.0,  -1.0) * 0.5 + 0.5);
+		output = (float3(pressure, -1.0, -1.0) * 0.5 + 0.5);
 	}
 	if (mode == 5) {
-
 	}
 
 	if (mode == 6) {
@@ -100,7 +99,6 @@ Output main(Input input) {
 	// o.color = float4(hash(uint3(position.xy * 1000, 1.0)), 1.0);
 	// o.color = float4(position, 1.0, 1.0);
 	// o.color = float4(subregion.xyz, 1);
-	
 
 	o.color = float4(output, 1.0);
 	return o;

@@ -4,6 +4,7 @@
 	non_upper_case_globals,
 	incomplete_features,
 	trivial_bounds,
+	where_clauses_object_safety,
 	clippy::useless_format,
 	clippy::toplevel_ref_arg,
 	clippy::single_match
@@ -45,12 +46,10 @@
 	label_break_value,
 	let_chains,
 	naked_functions,
-	never_type,
 	nll,
 	non_ascii_idents,
 	optimize_attribute,
 	optin_builtin_traits,
-	overlapping_marker_traits,
 	panic_runtime,
 	platform_intrinsics,
 	plugin,
@@ -62,7 +61,6 @@
 	repr128,
 	rustc_attrs,
 	simd_ffi,
-	slice_patterns,
 	specialization,
 	structural_match,
 	thread_local,
@@ -94,15 +92,12 @@
 	hash_raw_entry,
 	ip,
 	is_sorted,
-	iter_once_with,
 	linked_list_extras,
-	manually_drop_take,
 	map_entry_replace,
 	maybe_uninit_ref,
 	maybe_uninit_slice,
 	pattern,
 	range_is_empty,
-	result_map_or_else,
 	shrink_to,
 	slice_concat_ext,
 	slice_iter_mut_as_slice,
@@ -116,18 +111,12 @@
 	vec_drain_as_slice,
 	vec_remove_item,
 	vec_resize_default,
-	wait_timeout_until,
-	wait_until,
-	weak_counts,
 	wrapping_next_power_of_two
 )]
 
 ///
 /// Mathilda
 ///
-
-#[global_allocator]
-static Allocator: std::alloc::System = std::alloc::System;
 
 #[macro_use]
 extern crate log;
@@ -139,16 +128,18 @@ extern crate failure;
 extern crate raw_cpuid;
 #[macro_use]
 extern crate derivative;
+#[macro_use]
+extern crate derive_new;
+#[macro_use]
+extern crate smart_default;
+#[macro_use]
+extern crate cascade;
+#[macro_use]
+extern crate objekt_clonable;
 
-use chrono;
-use color_backtrace;
 use itertools::*;
 use log::*;
-use pretty_env_logger;
 
-use image;
-use shaderc;
-use wgpu;
 use winit::{
 	event::{DeviceEvent, ElementState, Event, MouseScrollDelta, VirtualKeyCode, WindowEvent},
 	event_loop::{ControlFlow, EventLoop},
@@ -156,10 +147,26 @@ use winit::{
 	window::WindowBuilder,
 };
 
-#[path = "./planner4.rs"]
+#[path = "./planner5.rs"]
 mod planner;
 #[path = "./renderer.rs"]
 mod renderer;
+
+fn create_version_string() -> String {
+	use std::env::consts::{ARCH, OS};
+	#[cfg(debug_assertions)]
+	const BUILD_TYPE: &str = "debug";
+	#[cfg(not(debug_assertions))]
+	const BUILD_TYPE: &str = "release";
+	format!(
+		"{} {} ({} build, {} [{}])",
+		env!("CARGO_PKG_NAME"),
+		env!("CARGO_PKG_VERSION"),
+		BUILD_TYPE,
+		OS,
+		ARCH
+	)
+}
 
 fn create_panic_hook(
 	adapter_info: Option<wgpu::AdapterInfo>,
@@ -173,6 +180,9 @@ fn create_panic_hook(
 			"crash-{}.txt",
 			chrono::Local::now().format("%Y-%m-%d-%H%M%S%z")
 		)) {
+			let _ = writeln!(file, "Version information:");
+			let _ = writeln!(file, "\t{}", create_version_string());
+			let _ = writeln!(file);
 			let _ = writeln!(file, "System information:");
 			let cpuid = raw_cpuid::CpuId::new();
 			if let Some(adapter_info) = &adapter_info {
@@ -197,26 +207,26 @@ fn create_window(
 ) -> winit::window::Window {
 	let icon = image::open(std::path::Path::new("./data/evil2.png")).unwrap();
 	let icon = icon.as_rgba8().unwrap();
-	WindowBuilder::new()
+	let builder = WindowBuilder::new()
 		.with_resizable(true)
-		.with_inner_size((1024, 1024).into())
-		.with_min_inner_size((600, 600).into())
+		.with_inner_size(winit::dpi::LogicalSize::new(1024, 1024))
+		.with_min_inner_size(winit::dpi::LogicalSize::new(1024, 1024))
 		.with_title(window_title)
 		.with_window_icon(Some(
 			Icon::from_rgba(icon.to_vec(), icon.width(), icon.height()).unwrap(),
 		))
-		.build(&eventloop)
-		.unwrap()
+		.with_transparent(false)
+		.with_decorations(true);
+	builder.build(&eventloop).unwrap()
 }
 
 fn create_swap_chain_descriptor(window: &winit::window::Window) -> wgpu::SwapChainDescriptor {
-	let hidpi_factor = window.hidpi_factor();
-	let window_size = window.inner_size().to_physical(hidpi_factor);
+	let window_size = window.inner_size();
 	wgpu::SwapChainDescriptor {
 		usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
 		format: wgpu::TextureFormat::Bgra8Unorm,
-		width: window_size.width.round() as u32,
-		height: window_size.height.round() as u32,
+		width: window_size.width,
+		height: window_size.height,
 		present_mode: wgpu::PresentMode::NoVsync,
 	}
 }
@@ -224,17 +234,14 @@ fn create_swap_chain_descriptor(window: &winit::window::Window) -> wgpu::SwapCha
 fn main() {
 	std::panic::set_hook(create_panic_hook(None));
 
-	let level_default = log::LevelFilter::Info;
-	let level: log::LevelFilter = std::env::var("LOG_LEVEL")
+	let level_default = log::Level::Info;
+	let level: log::Level = std::env::var("LOG_LEVEL")
 		.map(|v| str::parse(&v))
 		.unwrap_or(Ok(level_default))
 		.unwrap_or(level_default);
-	pretty_env_logger::formatted_timed_builder()
-		// .write_style(pretty_env_logger::env_logger::WriteStyle::Always)
-		.filter_level(level)
-		.init();
+	simple_logger::init_with_level(level).unwrap();
 
-	info!("Hello World!");
+	info!("{}", create_version_string());
 	// planner::plan();
 	// return;
 
@@ -243,9 +250,12 @@ fn main() {
 	let window = create_window(&window_title, &eventloop);
 
 	let surface = wgpu::Surface::create(&window);
-	let adapter = wgpu::Adapter::request(&wgpu::RequestAdapterOptions {
-		power_preference: wgpu::PowerPreference::Default,
-	}, wgpu::BackendBit::PRIMARY)
+	let adapter = wgpu::Adapter::request(
+		&wgpu::RequestAdapterOptions {
+			power_preference: wgpu::PowerPreference::Default,
+		},
+		wgpu::BackendBit::DX12,
+	)
 	.unwrap();
 
 	std::panic::set_hook(create_panic_hook(Some(adapter.get_info())));
@@ -269,10 +279,13 @@ fn main() {
 	let mut recreate_swapchain = false;
 	let mut force_regenerate = false;
 	let mut paused = false;
+	let mut time_now = chrono::Utc::now().naive_utc().time();
+	let mut time_frame = 0f32;
+	let mut time_ms = 0f32;
 	let mut time_frame_coll = std::collections::VecDeque::new();
 	let mut time_start = chrono::Utc::now().naive_utc().time();
 	let mut time_frame_accum = 0f32;
-	let time_smoothing_frames = 100usize;
+	let time_smoothing_frames = 20usize;
 	let time_update_ms = 100f32;
 	let mut args = renderer::RendererArgs {
 		time: 0f32,
@@ -284,12 +297,9 @@ fn main() {
 	let mut args_prev = args;
 
 	eventloop.run(move |event, _, control_flow| match event {
-		Event::WindowEvent {
-			event: WindowEvent::RedrawRequested,
-			..
-		} => {
-			let time_now = chrono::Utc::now().naive_utc().time();
-			let time_frame = (time_now
+		Event::RedrawRequested(_) => {
+			time_now = chrono::Utc::now().naive_utc().time();
+			time_frame = (time_now
 				.signed_duration_since(time_start)
 				.num_microseconds()
 				.unwrap() as f64 / 1000.0) as f32;
@@ -300,13 +310,13 @@ fn main() {
 			time_frame_coll.push_back(time_frame);
 			time_frame_accum += time_frame;
 			if time_frame_accum >= time_update_ms {
-				let ms = time_frame_coll.iter().sum::<f32>() / time_frame_coll.len() as f32;
+				time_ms = time_frame_coll.iter().sum::<f32>() / time_frame_coll.len() as f32;
 				window.set_title(
 					format!(
 						"{} ({:.1} fps / {:.3} ms)",
 						window_title,
-						1.0 / (ms / 1000f32),
-						ms
+						1.0 / (time_ms / 1000f32),
+						time_ms
 					)
 					.as_str(),
 				);
@@ -330,16 +340,20 @@ fn main() {
 				recreate_pipeline = false;
 				force_regenerate = true;
 			}
-			if let Ok(ref mut r) = renderer {
+			if let Ok(ref mut renderer) = renderer {
 				if args != args_prev || force_regenerate {
 					args_prev = args;
-					r.regenerate(&device, &mut queue, args);
+					renderer.regenerate(&device, &mut queue, args);
 					force_regenerate = false;
 				}
-				let _ = swap_chain.get_next_texture().and_then(|frame| {
-					r.render(&device, &mut queue, &frame.view);
-					Ok(frame)
-				});
+				match swap_chain.get_next_texture() {
+					Ok(frame) => {
+						renderer.render(&device, &mut queue, &frame.view);
+					}
+					Err(error) => {
+						error!("Couldn't get next texture:\n{:?}", error);
+					}
+				};
 			}
 		}
 		Event::WindowEvent {
@@ -355,12 +369,18 @@ fn main() {
 			recreate_swapchain = true;
 		}
 		Event::WindowEvent {
+			event: WindowEvent::ScaleFactorChanged { .. },
+			window_id,
+		} if window_id == window.id() => {
+			recreate_swapchain = true;
+		}
+		Event::WindowEvent {
 			event: WindowEvent::Focused(focused),
 			window_id,
 		} if window_id == window.id() => {
 			window_has_focus = focused;
 		}
-		Event::EventsCleared => {
+		Event::MainEventsCleared => {
 			if *control_flow != ControlFlow::Exit {
 				window.request_redraw();
 			}

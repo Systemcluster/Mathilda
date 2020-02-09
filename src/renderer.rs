@@ -165,9 +165,7 @@ impl<'a> Renderer<'a> {
 					bindings: &[wgpu::BindGroupLayoutBinding {
 						binding: 0,
 						visibility: wgpu::ShaderStage::FRAGMENT,
-						ty: wgpu::BindingType::UniformBuffer {
-							dynamic: false
-						},
+						ty: wgpu::BindingType::UniformBuffer { dynamic: false },
 					}],
 				});
 			let pipeline_layout_generate =
@@ -214,7 +212,7 @@ impl<'a> Renderer<'a> {
 					vertex_buffers: &[],
 					sample_count: 1,
 					alpha_to_coverage_enabled: false,
-					sample_mask: 0
+					sample_mask: 0,
 				});
 			(bind_group_generate, pipeline_generate)
 		};
@@ -227,15 +225,13 @@ impl<'a> Renderer<'a> {
 						wgpu::BindGroupLayoutBinding {
 							binding: 0,
 							visibility: wgpu::ShaderStage::COMPUTE,
-							ty: wgpu::BindingType::UniformBuffer {
-								dynamic: false
-							},
+							ty: wgpu::BindingType::UniformBuffer { dynamic: false },
 						},
 						wgpu::BindGroupLayoutBinding {
 							binding: 1,
 							visibility: wgpu::ShaderStage::COMPUTE,
 							ty: wgpu::BindingType::StorageTexture {
-								dimension: wgpu::TextureViewDimension::D2
+								dimension: wgpu::TextureViewDimension::D2,
 							},
 						},
 					],
@@ -279,9 +275,7 @@ impl<'a> Renderer<'a> {
 						wgpu::BindGroupLayoutBinding {
 							binding: 0,
 							visibility: wgpu::ShaderStage::FRAGMENT,
-							ty: wgpu::BindingType::UniformBuffer {
-								dynamic: false
-							},
+							ty: wgpu::BindingType::UniformBuffer { dynamic: false },
 						},
 						wgpu::BindGroupLayoutBinding {
 							binding: 1,
@@ -363,7 +357,7 @@ impl<'a> Renderer<'a> {
 				vertex_buffers: &[],
 				sample_count: 1,
 				alpha_to_coverage_enabled: false,
-				sample_mask: 0
+				sample_mask: 0,
 			});
 			(bind_group_output, pipeline_output)
 		};
@@ -384,11 +378,17 @@ impl<'a> Renderer<'a> {
 		})
 	}
 
-	pub fn regenerate(&mut self, device: &wgpu::Device, queue: &mut wgpu::Queue, args: RendererArgs) {
+	pub fn regenerate(
+		&mut self,
+		device: &wgpu::Device,
+		queue: &mut wgpu::Queue,
+		args: RendererArgs,
+	) {
 		let mut encoder =
 			device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
-		let args_buf = device.create_buffer_with_data(&[args].as_bytes(), wgpu::BufferUsage::COPY_SRC);
-			encoder.copy_buffer_to_buffer(
+		let args_buf =
+			device.create_buffer_with_data(&[args].as_bytes(), wgpu::BufferUsage::COPY_SRC);
+		encoder.copy_buffer_to_buffer(
 			&args_buf,
 			0u64,
 			&self.uniform_buf,
@@ -397,9 +397,10 @@ impl<'a> Renderer<'a> {
 		);
 		// render pass to texture
 		{
+			let view = self.texture.create_default_view();
 			let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
 				color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-					attachment: &self.texture.create_default_view(),
+					attachment: &view,
 					resolve_target: None,
 					load_op: wgpu::LoadOp::Clear,
 					store_op: wgpu::StoreOp::Store,
@@ -426,7 +427,12 @@ impl<'a> Renderer<'a> {
 		queue.submit(&[encoder.finish()]);
 	}
 
-	pub fn render(&mut self, device: &wgpu::Device, queue: &mut wgpu::Queue, view: &wgpu::TextureView) {
+	pub fn render(
+		&mut self,
+		device: &wgpu::Device,
+		queue: &mut wgpu::Queue,
+		view: &wgpu::TextureView,
+	) {
 		let mut encoder =
 			device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
 		// render pass to screen
