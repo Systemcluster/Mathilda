@@ -147,8 +147,6 @@ use winit::{
 	window::WindowBuilder,
 };
 
-#[path = "./planner5.rs"]
-mod planner;
 #[path = "./renderer.rs"]
 mod renderer;
 
@@ -242,8 +240,6 @@ fn main() {
 	simple_logger::init_with_level(level).unwrap();
 
 	info!("{}", create_version_string());
-	// planner::plan();
-	// return;
 
 	let eventloop = EventLoop::new();
 	let window_title = "mathilda";
