@@ -322,6 +322,7 @@ fn main() {
 				time_frame_coll.pop_front();
 			}
 			if recreate_swapchain {
+				info!("recreating swapchain");
 				swap_chain_descriptor = create_swap_chain_descriptor(&window);
 				swap_chain = device.create_swap_chain(&surface, &swap_chain_descriptor);
 				recreate_swapchain = false;
@@ -362,12 +363,14 @@ fn main() {
 			event: WindowEvent::Resized(_),
 			window_id,
 		} if window_id == window.id() => {
+			info!("resized");
 			recreate_swapchain = true;
 		}
 		Event::WindowEvent {
 			event: WindowEvent::ScaleFactorChanged { .. },
 			window_id,
 		} if window_id == window.id() => {
+			info!("scale changed");
 			recreate_swapchain = true;
 		}
 		Event::WindowEvent {
