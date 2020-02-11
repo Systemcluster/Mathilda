@@ -36,7 +36,7 @@ lto = "thin"
 wgpu = { package="wgpu", git="https://github.com/gfx-rs/wgpu-rs", branch="master" }
 winit = { git="https://github.com/rust-windowing/winit", branch="master" }
 spirv-reflect = "0.2.3"
-shaderc = "0.6.1"
+shaderc = { git="https://github.com/google/shaderc-rs.git" }
 image = "0.23.0"
 
 # sys crates
@@ -44,6 +44,8 @@ log = "0.4.8"
 simple_logger = "1.5.0"
 color-backtrace = "0.3.0"
 raw-cpuid = "7.0.3"
+sys-info = "= 0.5.8"
+os_info = "2.0.0"
 
 # util crates
 serde = { version = "1.0.104", features = ["derive"] }

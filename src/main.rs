@@ -182,14 +182,29 @@ fn create_panic_hook(
 			let _ = writeln!(file, "\t{}", create_version_string());
 			let _ = writeln!(file);
 			let _ = writeln!(file, "System information:");
-			let cpuid = raw_cpuid::CpuId::new();
+			let os = os_info::get();
+			let _ = writeln!(
+				file,
+				"\tOS: {} ({} {})",
+				os.os_type(),
+				os.version(),
+				os.bitness()
+			);
+			let cpu = raw_cpuid::CpuId::new();
+			if let Some(extended_function_info) = cpu.get_extended_function_info() {
+				if let Some(brand_string) = extended_function_info.processor_brand_string() {
+					let _ = write!(file, "\tCPU: {}", brand_string.trim());
+				}
+			}
+			if let Ok(cpuspeed) = sys_info::cpu_speed() {
+				let _ = write!(file, " ({} MHz)", cpuspeed);
+			}
+			let _ = writeln!(file);
+			if let Ok(mem) = sys_info::mem_info() {
+				let _ = writeln!(file, "\tRAM: {} KB ({} KB free)", mem.total, mem.free);
+			}
 			if let Some(adapter_info) = &adapter_info {
 				let _ = writeln!(file, "\tGPU: {:?}", adapter_info);
-			}
-			if let Some(extended_function_info) = cpuid.get_extended_function_info() {
-				if let Some(brand_string) = extended_function_info.processor_brand_string() {
-					let _ = writeln!(file, "\tCPU: {}", brand_string);
-				}
 			}
 			let _ = writeln!(file);
 			create_panic_handler(
@@ -291,6 +306,8 @@ fn main() {
 		level: 0.5f32,
 	};
 	let mut args_prev = args;
+
+	info!("entering render loop");
 
 	eventloop.run(move |event, _, control_flow| match event {
 		Event::RedrawRequested(_) => {
