@@ -35,8 +35,8 @@ lto = "thin"
 # graphics crates
 wgpu = { package="wgpu", git="https://github.com/gfx-rs/wgpu-rs", branch="master" }
 winit = { git="https://github.com/rust-windowing/winit", branch="master" }
-spirv-reflect = "0.2.3"
-shaderc = { git="https://github.com/google/shaderc-rs.git" }
+spirv-reflect = { git="https://github.com/gwihlidal/spirv-reflect-rs" }
+shaderc = { git="https://github.com/google/shaderc-rs.git", features=["build-from-source"] }
 image = "0.23.0"
 
 # sys crates
@@ -50,17 +50,16 @@ os_info = "2.0.0"
 # util crates
 serde = { version = "1.0.104", features = ["derive"] }
 warmy = "0.13.0"
-failure = "0.1.6"
+failure = { git="https://github.com/rust-lang-nursery/failure" }
 itertools = "0.8.2"
 rand = "0.7.3"
 dirs = "2.0.2"
 chrono = "0.4.10"
 tokio = { git="https://github.com/tokio-rs/tokio" }
 zerocopy = "0.2.8"
-derivative = "1.0.3"
+derivative = { git="https://github.com/jakobhellermann/rust-derivative" }
 derive-new = "0.5.8"
 derive_more = "0.99.2"
 smart-default = "0.6.0"
 cascade = "0.1.4"
-objekt-clonable = "0.2.2"
 nalgebra = { version = "0.19.0", features = ["mint"] }

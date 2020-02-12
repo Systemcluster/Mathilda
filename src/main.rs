@@ -134,8 +134,6 @@ extern crate derive_new;
 extern crate smart_default;
 #[macro_use]
 extern crate cascade;
-#[macro_use]
-extern crate objekt_clonable;
 
 use itertools::*;
 use log::*;

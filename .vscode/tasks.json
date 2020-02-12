@@ -1,19 +1,21 @@
 {
-	// See https://go.microsoft.com/fwlink/?LinkId=733558
-	// for the documentation about the tasks.json format
 	"version": "2.0.0",
 	"tasks": [
 		{
 			"label": "build",
-			"type": "cargo",
-			"subcommand": "build",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"build",
+				"--release"
+			],
 			"problemMatcher": [
 				"$rustc"
 			],
 			"group": "build",
 			"presentation": {
 				"echo": true,
-				"reveal": "silent",
+				"reveal": "always",
 				"focus": false,
 				"panel": "shared",
 				"showReuseMessage": true,
@@ -21,7 +23,9 @@
 			},
 			"options": {
 				"cwd": "${workspaceFolder}",
-				"env": {}
+				"env": {
+					"RUSTFLAGS": "-Zunstable-options -Zthinlto -Zstrip-debuginfo-if-disabled=yes -Ctarget-cpu=haswell -Ctarget-feature=+crt-static,+aes -Clink-arg=/DEBUG:NONE"
+				}
 			}
 		},
 		{
@@ -37,7 +41,8 @@
 				"cwd": "${workspaceFolder}",
 				"env": {
 					"RUST_BACKTRACE": "1",
-					"LOG_LEVEL": "info"
+					"LOG_LEVEL": "info",
+					"RUSTFLAGS": "-Zunstable-options -Zthinlto -Ctarget-cpu=haswell -Ctarget-feature=-crt-static"
 				}
 			},
 			"problemMatcher": [
@@ -67,7 +72,8 @@
 				"cwd": "${workspaceFolder}",
 				"env": {
 					"RUST_BACKTRACE": "1",
-					"LOG_LEVEL": "debug"
+					"LOG_LEVEL": "debug",
+					"RUSTFLAGS": "-Zunstable-options -Zthinlto -Ctarget-cpu=haswell -Ctarget-feature=-crt-static"
 				}
 			},
 			"problemMatcher": [
