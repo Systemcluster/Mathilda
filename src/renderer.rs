@@ -1,40 +1,10 @@
 use chrono::Timelike;
 use derive_more::*;
+use failure::Error;
+use std::error::Error as StdError;
 use zerocopy::{AsBytes, FromBytes};
 
-#[derive(Debug, Clone, Display)]
-pub enum RendererError {
-	NotInitialized,
-	ShaderCompilationError(String),
-	RendererInitError(String),
-}
-impl From<shaderc::Error> for RendererError {
-	fn from(e: shaderc::Error) -> Self {
-		Self::ShaderCompilationError(format!("{}", e))
-	}
-}
-impl From<&str> for RendererError {
-	fn from(e: &str) -> Self {
-		Self::ShaderCompilationError(format!("{}", e))
-	}
-}
-
-fn compile_shader(
-	compiler: &mut shaderc::Compiler,
-	options: &shaderc::CompileOptions,
-	path: &std::path::Path,
-	kind: shaderc::ShaderKind,
-) -> Result<shaderc::CompilationArtifact, RendererError> {
-	let source = std::fs::read_to_string(path).unwrap();
-	let shader = compiler.compile_into_spirv(
-		source.as_str(),
-		kind,
-		path.file_name().unwrap().to_str().unwrap(),
-		"main",
-		Some(options),
-	)?;
-	Ok(shader)
-}
+use super::resources::get_shader;
 
 #[derive(Copy, Clone, PartialEq, AsBytes, FromBytes)]
 #[repr(C, packed)]
@@ -46,10 +16,7 @@ pub struct RendererArgs {
 	pub level: f32,
 }
 
-pub struct Renderer<'a> {
-	compiler: shaderc::Compiler,
-	options: shaderc::CompileOptions<'a>,
-
+pub struct Renderer {
 	bind_group_generate: wgpu::BindGroup,
 	bind_group_modify: wgpu::BindGroup,
 	bind_group_output: wgpu::BindGroup,
@@ -61,70 +28,15 @@ pub struct Renderer<'a> {
 	pipeline_modify: wgpu::ComputePipeline,
 	pipeline_output: wgpu::RenderPipeline,
 }
-impl<'a> Renderer<'a> {
+impl Renderer {
 	pub fn init(
 		swap_chain_descriptor: &wgpu::SwapChainDescriptor,
 		device: &wgpu::Device,
-	) -> Result<Self, RendererError> {
-		let mut compiler = shaderc::Compiler::new().unwrap();
-		let mut options = shaderc::CompileOptions::new().unwrap();
-		options.set_source_language(shaderc::SourceLanguage::HLSL);
-		if cfg!(debug_assertions) {
-			options.set_optimization_level(shaderc::OptimizationLevel::Zero);
-			options.set_generate_debug_info();
-		} else {
-			options.set_optimization_level(shaderc::OptimizationLevel::Performance);
-		}
-		options.set_auto_bind_uniforms(true);
-		options.set_include_callback(|file, _include_type, source, _depth| {
-			let mut path = std::env::current_dir().map_err(|e| e.to_string())?;
-			path.push(std::path::Path::new("data/hlsl/"));
-			path.push(std::path::Path::new(file));
-			info!("including {:?} from {}", path, source);
-			let p = path.canonicalize().map_err(|e| e.to_string())?;
-			let resolved_name = path.to_str().ok_or_else(|| "path is not valid utf-8")?;
-			let resolved_name = resolved_name.to_owned();
-			Ok(shaderc::ResolvedInclude {
-				resolved_name,
-				content: std::fs::read_to_string(p).map_err(|e| e.to_string())?,
-			})
-		});
-
-		let vs_shader = compile_shader(
-			&mut compiler,
-			&options,
-			std::path::Path::new("data/hlsl/fullscreen.vert.hlsl"),
-			shaderc::ShaderKind::Vertex,
-		)?;
-		let fs_shader_generate = compile_shader(
-			&mut compiler,
-			&options,
-			std::path::Path::new("data/hlsl/fbm1.frag.hlsl"),
-			shaderc::ShaderKind::Fragment,
-		)?;
-		let fs_shader_output = compile_shader(
-			&mut compiler,
-			&options,
-			std::path::Path::new("data/hlsl/textured.frag.hlsl"),
-			shaderc::ShaderKind::Fragment,
-		)?;
-		let cs_shader = compile_shader(
-			&mut compiler,
-			&options,
-			std::path::Path::new("data/hlsl/modify.comp.hlsl"),
-			shaderc::ShaderKind::Compute,
-		)?;
-
-		let vs_module = device.create_shader_module(vs_shader.as_binary());
-		let fs_module_generate = device.create_shader_module(fs_shader_generate.as_binary());
-		let fs_module_output = device.create_shader_module(fs_shader_output.as_binary());
-		let cs_module = device.create_shader_module(cs_shader.as_binary());
-
-		// let fs_reflect = spirv_reflect::ShaderModule::load_u8_data(fs_shader_generate.as_binary_u8())?;
-		// let fs_bindings = fs_reflect.enumerate_descriptor_bindings(None)?;
-		// for ref input in fs_bindings.iter() {
-		// 	info!("{:#?}", input);
-		// }
+	) -> Result<Self, Error> {
+		let vs_module = device.create_shader_module(&get_shader("fullscreen.vert")?);
+		let fs_module_generate = device.create_shader_module(&get_shader("fbm1.frag")?);
+		let fs_module_output = device.create_shader_module(&get_shader("textured.frag")?);
+		let cs_module = device.create_shader_module(&get_shader("modify.comp")?);
 
 		let uniform_buf = device
 			.create_buffer_mapped(
@@ -369,8 +281,6 @@ impl<'a> Renderer<'a> {
 			pipeline_generate,
 			pipeline_modify,
 			pipeline_output,
-			compiler,
-			options,
 		})
 	}
 

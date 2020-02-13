@@ -1,3 +1,5 @@
+#pragma shader_stage(fragment)
+
 cbuffer GlobalBuffer : register(b0) {
 	float4 subregion;
 	float2 offset;

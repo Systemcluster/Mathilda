@@ -1,11 +1,13 @@
-static const float2 positions[6] = {
-	float2( 1.0, -1.0),
-	float2(-1.0, -1.0),
-	float2(-1.0,  1.0),
+#pragma shader_stage(vertex)
 
-	float2(-1.0,  1.0),
-	float2( 1.0,  1.0),
-	float2( 1.0, -1.0),
+static const float2 positions[6] = {
+	float2(1.0, -1.0),
+	float2(-1.0, -1.0),
+	float2(-1.0, 1.0),
+
+	float2(-1.0, 1.0),
+	float2(1.0, 1.0),
+	float2(1.0, -1.0),
 };
 // static const float2 positions[3] = {
 // 	float2(0.0, -1.2),

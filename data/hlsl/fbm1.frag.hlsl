@@ -1,3 +1,5 @@
+#pragma shader_stage(fragment)
+
 cbuffer GlobalBuffer: register(b0) {
 	float4 subregion;
 	float2 offset;
@@ -34,8 +36,8 @@ Output main(Input input) {
 
 	float4 seed = float4(
 		time / 12000
-		// sin(time / 10000 / 100 - 100) * 100, 
-		// cos(time / 10000 / 100 + 100) * 100, 
+		// sin(time / 10000 / 100 - 100) * 100,
+		// cos(time / 10000 / 100 + 100) * 100,
 		// time / 12000
 	) + 0.025;
 
@@ -52,12 +54,12 @@ Output main(Input input) {
 	int iterations = 12;
 	float lacunarity = 1.8;
 	float persistence = 0.6;
-	
+
 	float amplitude_total = 0;
 
 	static const float PI2 = 6.283185307179586476925286766559f;
 	static const float PI = PI2 / 2.0;
-	static const float 
+	static const float
 		x1 = 0.0,
 		y1 = 0.0,
 		x2 = 1.0,
@@ -65,7 +67,7 @@ Output main(Input input) {
 	static const float
 		dxp = (x2 - x1) / PI2,
 		dyp = (y2 - y1) / PI2;
-	float 
+	float
 		ox = seed.x + x1,
 		oy = seed.y + y1,
 		oz = seed.z + x2,
@@ -86,11 +88,11 @@ Output main(Input input) {
 		nv = pnoise4d(
 			float4(nx, ny, nz, nw) * frequency
 		);
-		
+
 		hv += nv * amplitude;
-		
+
 		amplitude_total += amplitude;
-		
+
 		amplitude *= persistence;
 		frequency *= lacunarity;
 	}

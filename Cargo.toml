@@ -3,6 +3,7 @@ name = "mathilda"
 description = ""
 version = "0.0.1"
 authors = ["Christian Sdunek <me@systemcluster.me>"]
+repository = "https://github.com/Systemcluster/Mathilda"
 edition = "2018"
 publish = false
 license = "unlicensed"
@@ -16,19 +17,34 @@ opt-level = 0
 panic = "unwind"
 debug = true
 debug-assertions = true
+incremental = true
+lto = "off"
 
 [profile.test]
-opt-level = 1
+opt-level = 0
 debug = true
 debug-assertions = true
+incremental = false
+lto = "off"
 
 [profile.release]
 opt-level = 3
 panic = "abort"
 debug = false
 debug-assertions = false
+incremental = false
 lto = "thin"
 
+[profile.bench]
+opt-level = 3
+debug = false
+debug-assertions = false
+incremental = false
+lto = "thin"
+
+[features]
+default = []
+hotreload = ["shaderc"]
 
 [dependencies]
 
@@ -36,7 +52,7 @@ lto = "thin"
 wgpu = { package="wgpu", git="https://github.com/gfx-rs/wgpu-rs", branch="master" }
 winit = { git="https://github.com/rust-windowing/winit", branch="master" }
 spirv-reflect = { git="https://github.com/gwihlidal/spirv-reflect-rs" }
-shaderc = { git="https://github.com/google/shaderc-rs.git", features=["build-from-source"] }
+shaderc = { git="https://github.com/google/shaderc-rs.git", features=["build-from-source"], optional=true }
 image = "0.23.0"
 
 # sys crates
@@ -57,9 +73,11 @@ dirs = "2.0.2"
 chrono = "0.4.10"
 tokio = { git="https://github.com/tokio-rs/tokio" }
 zerocopy = "0.2.8"
-derivative = { git="https://github.com/jakobhellermann/rust-derivative" }
 derive-new = "0.5.8"
 derive_more = "0.99.2"
 smart-default = "0.6.0"
 cascade = "0.1.4"
 nalgebra = { version = "0.19.0", features = ["mint"] }
+once_cell = "1.3.1"
+fragile = "1.0.0"
+include_dir = "0.5.0"

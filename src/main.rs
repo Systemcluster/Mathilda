@@ -1,3 +1,4 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 #![allow(
 	dead_code,
 	unused_imports,
@@ -100,6 +101,7 @@
 	range_is_empty,
 	shrink_to,
 	slice_concat_ext,
+	slice_concat_trait,
 	slice_iter_mut_as_slice,
 	slice_partition_at_index,
 	slice_partition_dedup,
@@ -127,23 +129,25 @@ extern crate failure;
 #[macro_use]
 extern crate raw_cpuid;
 #[macro_use]
-extern crate derivative;
-#[macro_use]
 extern crate derive_new;
 #[macro_use]
 extern crate smart_default;
 #[macro_use]
 extern crate cascade;
+#[macro_use]
+extern crate include_dir;
 
+use failure::Error;
 use itertools::*;
 use log::*;
-
 use winit::{
 	event::{DeviceEvent, ElementState, Event, MouseScrollDelta, VirtualKeyCode, WindowEvent},
 	event_loop::{ControlFlow, EventLoop},
 	window::Icon,
 	window::WindowBuilder,
 };
+
+mod resources;
 
 #[path = "./renderer.rs"]
 mod renderer;
@@ -216,7 +220,7 @@ fn create_window(
 	window_title: &str,
 	eventloop: &winit::event_loop::EventLoop<()>,
 ) -> winit::window::Window {
-	let icon = image::open(std::path::Path::new("./data/evil2.png")).unwrap();
+	let icon = image::load_from_memory(resources::get_image("evil2.png").unwrap()).unwrap();
 	let icon = icon.as_rgba8().unwrap();
 	let builder = WindowBuilder::new()
 		.with_resizable(true)
@@ -263,7 +267,7 @@ fn main() {
 		&wgpu::RequestAdapterOptions {
 			power_preference: wgpu::PowerPreference::Default,
 		},
-		wgpu::BackendBit::DX12,
+		wgpu::BackendBit::PRIMARY,
 	)
 	.unwrap();
 
@@ -281,7 +285,7 @@ fn main() {
 
 	window.set_visible(true);
 
-	let mut renderer = Err(renderer::RendererError::NotInitialized);
+	let mut renderer = None;
 
 	let mut window_has_focus = true;
 	let mut recreate_pipeline = true;
@@ -343,16 +347,19 @@ fn main() {
 				recreate_swapchain = false;
 			}
 			if recreate_pipeline {
-				renderer = renderer::Renderer::init(&swap_chain_descriptor, &device);
-				if let Err(ref e) = renderer {
-					error!("Error initializing renderer:\n{}", e);
-				} else {
-					info!("renderer ok!")
+				match renderer::Renderer::init(&swap_chain_descriptor, &device) {
+					Err(ref error) => {
+						error!("Error initializing renderer:\n{:?}", error);
+					}
+					Ok(new_renderer) => {
+						info!("renderer ok!");
+						renderer = Some(new_renderer)
+					}
 				}
 				recreate_pipeline = false;
 				force_regenerate = true;
 			}
-			if let Ok(ref mut renderer) = renderer {
+			if let Some(ref mut renderer) = renderer {
 				if args != args_prev || force_regenerate {
 					args_prev = args;
 					renderer.regenerate(&device, &mut queue, args);
