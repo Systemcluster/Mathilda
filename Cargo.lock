@@ -538,31 +538,11 @@ checksum = "bb1f6b1ce1c140482ea30ddd3335fc0024ac7ee112895426e0a629a6c20adfe3"
 [[package]]
 name = "failure"
 version = "0.1.6"
-source = "git+https://github.com/rust-lang-nursery/failure#20f9a9e223b7cd71aed541d050cc73a747fc00c4"
-dependencies = [
- "backtrace",
- "failure_derive 0.1.6 (git+https://github.com/rust-lang-nursery/failure)",
-]
-
-[[package]]
-name = "failure"
-version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8273f13c977665c5db7eb2b99ae520952fe5ac831ae4cd09d80c4c7042b5ed9"
 dependencies = [
  "backtrace",
- "failure_derive 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "failure_derive"
-version = "0.1.6"
-source = "git+https://github.com/rust-lang-nursery/failure#20f9a9e223b7cd71aed541d050cc73a747fc00c4"
-dependencies = [
- "proc-macro2 1.0.8",
- "quote 1.0.2",
- "syn 1.0.14",
- "synstructure 0.12.3",
+ "failure_derive",
 ]
 
 [[package]]
@@ -778,9 +758,9 @@ dependencies = [
 
 [[package]]
 name = "gfx-backend-vulkan"
-version = "0.4.1"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2882031bf5024f3b9f82771602491e8995aac43d04ee76107205b8c5d6aed0fd"
+checksum = "ed9a9de46ec24543193d5dabad3a79e5ede990878bace548758846292466d916"
 dependencies = [
  "arrayvec",
  "ash",
@@ -900,7 +880,7 @@ version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f03b4f7b64011df46794cc221854be5c3084345e260576518b91693866d0afd1"
 dependencies = [
- "failure 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "failure",
  "proc-macro-hack",
  "proc-macro2 1.0.8",
  "quote 1.0.2",
@@ -1090,7 +1070,7 @@ dependencies = [
  "derive-new",
  "derive_more",
  "dirs",
- "failure 0.1.6 (git+https://github.com/rust-lang-nursery/failure)",
+ "failure",
  "fragile",
  "image",
  "include_dir",
@@ -1131,9 +1111,9 @@ checksum = "60302e4db3a61da70c0cb7991976248362f30319e88850c487b9b95bbf059e00"
 
 [[package]]
 name = "memchr"
-version = "2.3.0"
+version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3197e20c7edb283f87c071ddfc7a2cca8f8e0b888c242959846a6fce03c72223"
+checksum = "53445de381a1f436797497c61d851644d0e8e88e6140f22872ad33a704933978"
 
 [[package]]
 name = "memmap"
@@ -1876,9 +1856,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.47"
+version = "1.0.48"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15913895b61e0be854afd32fd4163fcd2a3df34142cf2cb961b310ce694cbf90"
+checksum = "9371ade75d4c2d6cb154141b9752cf3781ec9c05e0e5cf35060e1e70ee7b9c25"
 dependencies = [
  "itoa",
  "ryu",
@@ -2130,7 +2110,7 @@ dependencies = [
 [[package]]
 name = "tokio"
 version = "0.2.11"
-source = "git+https://github.com/tokio-rs/tokio#5e75b0446d771f527d65ecc7ba34e2276eb2bf21"
+source = "git+https://github.com/tokio-rs/tokio#466dd4a851122ab2c2b11bf44148887e359fd938"
 dependencies = [
  "bytes",
  "pin-project-lite",
@@ -2416,7 +2396,7 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 [[package]]
 name = "winit"
 version = "0.21.0"
-source = "git+https://github.com/rust-windowing/winit#5f52d7c9d0f2892758f50f400f8c22ee0adcae78"
+source = "git+https://github.com/rust-windowing/winit#83b60beba6ef53a10e3fa63eb0716372268ba199"
 dependencies = [
  "android_glue",
  "bitflags",

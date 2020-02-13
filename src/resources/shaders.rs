@@ -1,7 +1,7 @@
 use failure::Error;
 use fragile::Fragile;
 use once_cell::sync::Lazy;
-pub use shaderc::{
+use shaderc::{
 	CompilationArtifact, CompileOptions, Compiler, OptimizationLevel, ShaderKind, SourceLanguage,
 };
 use std::sync::Mutex;

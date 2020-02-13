@@ -22,10 +22,15 @@
 	const_fn,
 	const_fn_union,
 	const_generics,
+	const_if_match,
+	const_in_array_repeat_expressions,
+	const_loop,
+	const_mut_refs,
 	const_panic,
 	const_raw_ptr_deref,
 	const_raw_ptr_to_usize_cast,
-	const_transmute,
+	const_trait_bound_opt_out,
+	const_trait_impl,
 	core_intrinsics,
 	default_type_parameter_fallback,
 	decl_macro,
@@ -82,6 +87,7 @@
 	const_cstr_unchecked,
 	const_int_conversion,
 	const_saturating_int_methods,
+	const_transmute,
 	const_type_id,
 	error_iter,
 	error_type_id,
@@ -137,20 +143,22 @@ extern crate cascade;
 #[macro_use]
 extern crate include_dir;
 
+#[path = "./renderer.rs"]
+mod renderer;
+mod resources;
+#[path = "./time.rs"]
+mod time;
+
 use failure::Error;
 use itertools::*;
 use log::*;
+use time::*;
 use winit::{
 	event::{DeviceEvent, ElementState, Event, MouseScrollDelta, VirtualKeyCode, WindowEvent},
 	event_loop::{ControlFlow, EventLoop},
 	window::Icon,
 	window::WindowBuilder,
 };
-
-mod resources;
-
-#[path = "./renderer.rs"]
-mod renderer;
 
 fn create_version_string() -> String {
 	use std::env::consts::{ARCH, OS};
@@ -292,14 +300,8 @@ fn main() {
 	let mut recreate_swapchain = false;
 	let mut force_regenerate = false;
 	let mut paused = false;
-	let mut time_now = chrono::Utc::now().naive_utc().time();
-	let mut time_frame = 0f32;
-	let mut time_ms = 0f32;
-	let mut time_frame_coll = std::collections::VecDeque::new();
-	let mut time_start = chrono::Utc::now().naive_utc().time();
-	let mut time_frame_accum = 0f32;
-	let time_smoothing_frames = 20usize;
-	let time_update_ms = 100f32;
+	let mut timer = FrameAccumTimer::new(20, 120f32);
+
 	let mut args = renderer::RendererArgs {
 		time: 0f32,
 		mode: 0i32,
@@ -315,33 +317,19 @@ fn main() {
 		*control_flow = ControlFlow::Poll;
 		match event {
 			Event::RedrawRequested(_) => {
-				time_now = chrono::Utc::now().naive_utc().time();
-				time_frame = (time_now
-					.signed_duration_since(time_start)
-					.num_microseconds()
-					.unwrap() as f64
-					/ 1000.0) as f32;
-				time_start = time_now;
-				if !paused {
-					args.time += time_frame;
-				}
-				time_frame_coll.push_back(time_frame);
-				time_frame_accum += time_frame;
-				if time_frame_accum >= time_update_ms {
-					time_ms = time_frame_coll.iter().sum::<f32>() / time_frame_coll.len() as f32;
+				timer.update(|timer| {
 					window.set_title(
 						format!(
 							"{} ({:.1} fps / {:.3} ms)",
 							window_title,
-							1.0 / (time_ms / 1000f32),
-							time_ms
+							timer.frames_per_second_smooth(),
+							timer.frame_time_smooth()
 						)
 						.as_str(),
-					);
-					time_frame_accum = 0f32;
-				}
-				if time_frame_coll.len() >= time_smoothing_frames {
-					time_frame_coll.pop_front();
+					)
+				});
+				if !paused {
+					args.time += timer.frame_time();
 				}
 
 				if recreate_swapchain {
@@ -414,9 +402,10 @@ fn main() {
 				}
 			}
 			Event::DeviceEvent {
-				event: DeviceEvent::MouseWheel {
-					delta: MouseScrollDelta::LineDelta(_, y),
-				},
+				event:
+					DeviceEvent::MouseWheel {
+						delta: MouseScrollDelta::LineDelta(_, y),
+					},
 				..
 			} if window_has_focus => {
 				args.time += y * 50f32;
