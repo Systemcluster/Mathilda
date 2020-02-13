@@ -31,7 +31,7 @@ pub fn get_shader(file: &'static str) -> Result<Vec<u32>, Error> {
 pub fn get_shader(file: &'static str) -> Result<Vec<u32>, Error> {
 	Ok(SHADERS
 		.get_file(&[file, ".hlsl.spirv"].concat())
-		.ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, &[file, ".hlsl.spirv"].concat()))?
+		.ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, [file, ".hlsl.spirv"].concat()))?
 		.contents()
 		.iter()
 		.map(|&v| v as u32)

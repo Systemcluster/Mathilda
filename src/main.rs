@@ -273,7 +273,7 @@ fn main() {
 
 	std::panic::set_hook(create_panic_hook(Some(adapter.get_info())));
 
-	let (device, mut queue) = adapter.request_device(&wgpu::DeviceDescriptor {
+	let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor {
 		extensions: wgpu::Extensions {
 			anisotropic_filtering: false,
 		},
@@ -311,182 +311,190 @@ fn main() {
 
 	info!("entering render loop");
 
-	eventloop.run(move |event, _, control_flow| match event {
-		Event::RedrawRequested(_) => {
-			time_now = chrono::Utc::now().naive_utc().time();
-			time_frame = (time_now
-				.signed_duration_since(time_start)
-				.num_microseconds()
-				.unwrap() as f64 / 1000.0) as f32;
-			time_start = time_now;
-			if !paused {
-				args.time += time_frame;
-			}
-			time_frame_coll.push_back(time_frame);
-			time_frame_accum += time_frame;
-			if time_frame_accum >= time_update_ms {
-				time_ms = time_frame_coll.iter().sum::<f32>() / time_frame_coll.len() as f32;
-				window.set_title(
-					format!(
-						"{} ({:.1} fps / {:.3} ms)",
-						window_title,
-						1.0 / (time_ms / 1000f32),
-						time_ms
-					)
-					.as_str(),
-				);
-				time_frame_accum = 0f32;
-			}
-			if time_frame_coll.len() >= time_smoothing_frames {
-				time_frame_coll.pop_front();
-			}
-			if recreate_swapchain {
-				info!("recreating swapchain");
-				swap_chain_descriptor = create_swap_chain_descriptor(&window);
-				swap_chain = device.create_swap_chain(&surface, &swap_chain_descriptor);
-				recreate_swapchain = false;
-			}
-			if recreate_pipeline {
-				match renderer::Renderer::init(&swap_chain_descriptor, &device) {
-					Err(ref error) => {
-						error!("Error initializing renderer:\n{:?}", error);
+	eventloop.run(move |event, _, control_flow| {
+		*control_flow = ControlFlow::Poll;
+		match event {
+			Event::RedrawRequested(_) => {
+				time_now = chrono::Utc::now().naive_utc().time();
+				time_frame = (time_now
+					.signed_duration_since(time_start)
+					.num_microseconds()
+					.unwrap() as f64
+					/ 1000.0) as f32;
+				time_start = time_now;
+				if !paused {
+					args.time += time_frame;
+				}
+				time_frame_coll.push_back(time_frame);
+				time_frame_accum += time_frame;
+				if time_frame_accum >= time_update_ms {
+					time_ms = time_frame_coll.iter().sum::<f32>() / time_frame_coll.len() as f32;
+					window.set_title(
+						format!(
+							"{} ({:.1} fps / {:.3} ms)",
+							window_title,
+							1.0 / (time_ms / 1000f32),
+							time_ms
+						)
+						.as_str(),
+					);
+					time_frame_accum = 0f32;
+				}
+				if time_frame_coll.len() >= time_smoothing_frames {
+					time_frame_coll.pop_front();
+				}
+
+				if recreate_swapchain {
+					info!("recreating swapchain");
+					swap_chain_descriptor = create_swap_chain_descriptor(&window);
+					swap_chain = device.create_swap_chain(&surface, &swap_chain_descriptor);
+					recreate_swapchain = false;
+				}
+				if recreate_pipeline {
+					match renderer::Renderer::init(&swap_chain_descriptor, &device) {
+						Err(ref error) => {
+							error!("Error initializing renderer:\n{:?}", error);
+						}
+						Ok(new_renderer) => {
+							info!("renderer ok!");
+							renderer = Some(new_renderer)
+						}
 					}
-					Ok(new_renderer) => {
-						info!("renderer ok!");
-						renderer = Some(new_renderer)
+					recreate_pipeline = false;
+					force_regenerate = true;
+				}
+				if let Some(ref mut renderer) = renderer {
+					let frame = swap_chain.get_next_texture();
+					if args != args_prev || force_regenerate {
+						args_prev = args;
+						let command = renderer.regenerate(&device, args);
+						queue.submit(&[command]);
+						force_regenerate = false;
 					}
+					match frame {
+						Ok(frame) => {
+							let command = renderer.render(&device, &frame.view);
+							queue.submit(&[command]);
+						}
+						Err(error) => {
+							error!("Couldn't get next texture:\n{:?}", error);
+						}
+					};
 				}
-				recreate_pipeline = false;
-				force_regenerate = true;
 			}
-			if let Some(ref mut renderer) = renderer {
-				if args != args_prev || force_regenerate {
-					args_prev = args;
-					renderer.regenerate(&device, &mut queue, args);
-					force_regenerate = false;
+			Event::WindowEvent {
+				event: WindowEvent::CloseRequested,
+				window_id,
+			} if window_id == window.id() => {
+				*control_flow = ControlFlow::Exit;
+			}
+			Event::WindowEvent {
+				event: WindowEvent::Resized(_),
+				window_id,
+			} if window_id == window.id() => {
+				info!("resized");
+				recreate_swapchain = true;
+			}
+			Event::WindowEvent {
+				event: WindowEvent::ScaleFactorChanged { .. },
+				window_id,
+			} if window_id == window.id() => {
+				info!("scale changed");
+				recreate_swapchain = true;
+			}
+			Event::WindowEvent {
+				event: WindowEvent::Focused(focused),
+				window_id,
+			} if window_id == window.id() => {
+				window_has_focus = focused;
+			}
+			Event::MainEventsCleared => {
+				if *control_flow != ControlFlow::Exit {
+					window.request_redraw();
 				}
-				match swap_chain.get_next_texture() {
-					Ok(frame) => {
-						renderer.render(&device, &mut queue, &frame.view);
+			}
+			Event::DeviceEvent {
+				event: DeviceEvent::MouseWheel {
+					delta: MouseScrollDelta::LineDelta(_, y),
+				},
+				..
+			} if window_has_focus => {
+				args.time += y * 50f32;
+			}
+			Event::DeviceEvent {
+				event: DeviceEvent::Key(input),
+				..
+			} if window_has_focus && input.state == ElementState::Pressed => {
+				use VirtualKeyCode::*;
+				match input.virtual_keycode {
+					Some(F5) => {
+						recreate_pipeline = true;
 					}
-					Err(error) => {
-						error!("Couldn't get next texture:\n{:?}", error);
+					Some(Space) => {
+						paused = !paused;
 					}
-				};
+					Some(Key0) => {
+						args.mode = 0;
+					}
+					Some(Key1) => {
+						args.mode = 1;
+					}
+					Some(Key2) => {
+						args.mode = 2;
+					}
+					Some(Key3) => {
+						args.mode = 3;
+					}
+					Some(Key4) => {
+						args.mode = 4;
+					}
+					Some(Key5) => {
+						args.mode = 5;
+					}
+					Some(Key6) => {
+						args.mode = 6;
+					}
+					Some(PageUp) => {
+						args.subregion = [
+							args.subregion[0] - 0.025 % 1.0,
+							args.subregion[1] - 0.025 % 1.0,
+							args.subregion[2] + 0.025 % 1.0,
+							args.subregion[3] + 0.025 % 1.0,
+						];
+					}
+					Some(PageDown) => {
+						args.subregion = [
+							args.subregion[0] + 0.025 % 1.0,
+							args.subregion[1] + 0.025 % 1.0,
+							args.subregion[2] - 0.025 % 1.0,
+							args.subregion[3] - 0.025 % 1.0,
+						];
+					}
+					Some(Home) => {
+						args.level = nalgebra::clamp(args.level + 0.02, 0f32, 1f32);
+					}
+					Some(End) => {
+						args.level = nalgebra::clamp(args.level - 0.02, 0f32, 1f32);
+					}
+					Some(Delete) => {
+						args.subregion = [0f32, 0f32, 1f32, 1f32];
+					}
+					Some(Up) => {
+						args.offset[1] -= 0.01;
+					}
+					Some(Down) => {
+						args.offset[1] += 0.01;
+					}
+					Some(Left) => {
+						args.offset[0] -= 0.01;
+					}
+					Some(Right) => {
+						args.offset[0] += 0.01;
+					}
+					_ => (),
+				}
 			}
+			_ => (),
 		}
-		Event::WindowEvent {
-			event: WindowEvent::CloseRequested,
-			window_id,
-		} if window_id == window.id() => {
-			*control_flow = ControlFlow::Exit;
-		}
-		Event::WindowEvent {
-			event: WindowEvent::Resized(_),
-			window_id,
-		} if window_id == window.id() => {
-			info!("resized");
-			recreate_swapchain = true;
-		}
-		Event::WindowEvent {
-			event: WindowEvent::ScaleFactorChanged { .. },
-			window_id,
-		} if window_id == window.id() => {
-			info!("scale changed");
-			recreate_swapchain = true;
-		}
-		Event::WindowEvent {
-			event: WindowEvent::Focused(focused),
-			window_id,
-		} if window_id == window.id() => {
-			window_has_focus = focused;
-		}
-		Event::MainEventsCleared => {
-			if *control_flow != ControlFlow::Exit {
-				window.request_redraw();
-			}
-		}
-		Event::DeviceEvent {
-			event: DeviceEvent::MouseWheel {
-				delta: MouseScrollDelta::LineDelta(_, y),
-			},
-			..
-		} if window_has_focus => {
-			args.time += y * 50f32;
-		}
-		Event::DeviceEvent {
-			event: DeviceEvent::Key(input),
-			..
-		} if window_has_focus && input.state == ElementState::Pressed => {
-			use VirtualKeyCode::*;
-			match input.virtual_keycode {
-				Some(F5) => {
-					recreate_pipeline = true;
-				}
-				Some(Space) => {
-					paused = !paused;
-				}
-				Some(Key0) => {
-					args.mode = 0;
-				}
-				Some(Key1) => {
-					args.mode = 1;
-				}
-				Some(Key2) => {
-					args.mode = 2;
-				}
-				Some(Key3) => {
-					args.mode = 3;
-				}
-				Some(Key4) => {
-					args.mode = 4;
-				}
-				Some(Key5) => {
-					args.mode = 5;
-				}
-				Some(Key6) => {
-					args.mode = 6;
-				}
-				Some(PageUp) => {
-					args.subregion = [
-						args.subregion[0] - 0.025 % 1.0,
-						args.subregion[1] - 0.025 % 1.0,
-						args.subregion[2] + 0.025 % 1.0,
-						args.subregion[3] + 0.025 % 1.0,
-					];
-				}
-				Some(PageDown) => {
-					args.subregion = [
-						args.subregion[0] + 0.025 % 1.0,
-						args.subregion[1] + 0.025 % 1.0,
-						args.subregion[2] - 0.025 % 1.0,
-						args.subregion[3] - 0.025 % 1.0,
-					];
-				}
-				Some(Home) => {
-					args.level = nalgebra::clamp(args.level + 0.02, 0f32, 1f32);
-				}
-				Some(End) => {
-					args.level = nalgebra::clamp(args.level - 0.02, 0f32, 1f32);
-				}
-				Some(Delete) => {
-					args.subregion = [0f32, 0f32, 1f32, 1f32];
-				}
-				Some(Up) => {
-					args.offset[1] -= 0.01;
-				}
-				Some(Down) => {
-					args.offset[1] += 0.01;
-				}
-				Some(Left) => {
-					args.offset[0] -= 0.01;
-				}
-				Some(Right) => {
-					args.offset[0] += 0.01;
-				}
-				_ => (),
-			}
-		}
-		_ => (),
 	});
 }

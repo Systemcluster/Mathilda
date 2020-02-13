@@ -284,12 +284,7 @@ impl Renderer {
 		})
 	}
 
-	pub fn regenerate(
-		&mut self,
-		device: &wgpu::Device,
-		queue: &mut wgpu::Queue,
-		args: RendererArgs,
-	) {
+	pub fn regenerate(&mut self, device: &wgpu::Device, args: RendererArgs) -> wgpu::CommandBuffer {
 		let mut encoder =
 			device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
 		let args_buf =
@@ -330,15 +325,14 @@ impl Renderer {
 			compute_pass.set_bind_group(0, &self.bind_group_modify, &[]);
 			compute_pass.dispatch(64, 64, 1);
 		}
-		queue.submit(&[encoder.finish()]);
+		encoder.finish()
 	}
 
 	pub fn render(
 		&mut self,
 		device: &wgpu::Device,
-		queue: &mut wgpu::Queue,
 		view: &wgpu::TextureView,
-	) {
+	) -> wgpu::CommandBuffer {
 		let mut encoder =
 			device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
 		// render pass to screen
@@ -362,6 +356,6 @@ impl Renderer {
 			render_pass.set_bind_group(0, &self.bind_group_output, &[]);
 			render_pass.draw(0..6, 0..1);
 		}
-		queue.submit(&[encoder.finish()]);
+		encoder.finish()
 	}
 }
