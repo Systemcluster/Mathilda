@@ -1,11 +1,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 #![allow(
-	dead_code,
-	unused_imports,
-	non_upper_case_globals,
 	incomplete_features,
 	trivial_bounds,
 	where_clauses_object_safety,
+	dead_code,
 	clippy::useless_format,
 	clippy::toplevel_ref_arg,
 	clippy::single_match
@@ -68,6 +66,7 @@
 	rustc_attrs,
 	simd_ffi,
 	specialization,
+	stmt_expr_attributes,
 	structural_match,
 	thread_local,
 	trace_macros,
@@ -122,35 +121,10 @@
 	wrapping_next_power_of_two
 )]
 
-///
-/// Mathilda
-///
-
-#[macro_use]
-extern crate log;
-#[macro_use]
-extern crate serde;
-#[macro_use]
-extern crate failure;
-#[macro_use]
-extern crate raw_cpuid;
-#[macro_use]
-extern crate derive_new;
-#[macro_use]
-extern crate smart_default;
-#[macro_use]
-extern crate cascade;
-#[macro_use]
-extern crate include_dir;
-
-#[path = "./renderer.rs"]
 mod renderer;
 mod resources;
-#[path = "./time.rs"]
 mod time;
 
-use failure::Error;
-use itertools::*;
 use log::*;
 use time::*;
 use winit::{
@@ -228,7 +202,7 @@ fn create_window(
 	window_title: &str,
 	eventloop: &winit::event_loop::EventLoop<()>,
 ) -> winit::window::Window {
-	let icon = image::load_from_memory(resources::get_image("evil2.png").unwrap()).unwrap();
+	let icon = resources::get_image("evil2.png").unwrap();
 	let icon = icon.as_rgba8().unwrap();
 	let builder = WindowBuilder::new()
 		.with_resizable(true)

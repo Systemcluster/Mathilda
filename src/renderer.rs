@@ -1,7 +1,4 @@
-use chrono::Timelike;
-use derive_more::*;
 use failure::Error;
-use std::error::Error as StdError;
 use zerocopy::{AsBytes, FromBytes};
 
 use super::resources::get_shader;

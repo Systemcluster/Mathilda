@@ -10,14 +10,14 @@
 				"--bin",
 				"mathilda",
 				"--features",
-				"hotreload"
+				"shaderinfo,hotreload"
 			],
 			"options": {
 				"cwd": "${workspaceFolder}",
 				"env": {
 					"RUST_BACKTRACE": "full",
 					"LOG_LEVEL": "info",
-					"RUSTFLAGS": "-Zunstable-options -Ctarget-cpu=haswell -Ctarget-feature=-crt-static"
+					"RUSTFLAGS": "-Zunstable-options -Ctarget-cpu=haswell -Ctarget-feature=-crt-static,+aes"
 				}
 			},
 			"problemMatcher": [
@@ -77,7 +77,7 @@
 				"env": {
 					"RUST_BACKTRACE": "full",
 					"LOG_LEVEL": "debug",
-					"RUSTFLAGS": "-Zunstable-options -Ctarget-cpu=haswell -Ctarget-feature=-crt-static"
+					"RUSTFLAGS": "-Zunstable-options -Ctarget-cpu=haswell -Ctarget-feature=-crt-static,+aes"
 				}
 			},
 			"problemMatcher": [
@@ -108,7 +108,7 @@
 				"env": {
 					"RUST_BACKTRACE": "full",
 					"LOG_LEVEL": "debug",
-					"RUSTFLAGS": "-Zunstable-options -Zthinlto -Ctarget-cpu=haswell -Ctarget-feature=-crt-static"
+					"RUSTFLAGS": "-Zunstable-options -Zthinlto -Ctarget-cpu=haswell -Ctarget-feature=-crt-static,+aes"
 				}
 			},
 			"problemMatcher": [
