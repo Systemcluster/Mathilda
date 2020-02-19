@@ -3,27 +3,6 @@ use failure::Error;
 pub mod shaders;
 
 #[cfg(feature = "hotreload")]
-mod hotreload {
-	use super::shaders;
-	use fragile::Fragile;
-	use once_cell::sync::Lazy;
-	use std::sync::Mutex;
-	pub static SHADER_COMPILER: once_cell::sync::Lazy<Mutex<Fragile<shaderc::Compiler>>> =
-		Lazy::new(|| {
-			Mutex::new(Fragile::new(
-				shaders::compiler::get_compiler().expect("couldn't create shader compiler"),
-			))
-		});
-	pub static SHADER_COMPILER_OPTIONS: Lazy<Mutex<Fragile<shaderc::CompileOptions>>> =
-		Lazy::new(|| {
-			Mutex::new(Fragile::new(
-				shaders::compiler::get_compile_options("data/hlsl")
-					.expect("couldn't create shader options"),
-			))
-		});
-}
-
-#[cfg(feature = "hotreload")]
 pub fn get_image(file: &str) -> image::ImageResult<image::DynamicImage> {
 	let path = std::env::current_dir()?.join("data/images").join(file);
 	image::open(path)
@@ -43,22 +22,30 @@ pub fn get_image(file: &str) -> image::ImageResult<image::DynamicImage> {
 
 #[cfg(feature = "hotreload")]
 pub fn get_shader(file: &'static str) -> Result<Vec<u32>, Error> {
-	let path = std::env::current_dir()?
-		.join("data/hlsl")
-		.join(&[file, ".hlsl"].concat());
-	let artifact = shaders::compiler::compile_shader(
-		&path,
-		hotreload::SHADER_COMPILER.lock().unwrap().get_mut(),
-		hotreload::SHADER_COMPILER_OPTIONS.lock().unwrap().get_mut(),
-	);
-	let shader = artifact.map(|artifact| artifact.as_binary().to_owned());
-	#[cfg(feature = "shaderinfo")]
-	{
-		if let Ok(shader) = &shader {
-			shaders::debug::enumerate_bindings(&shader);
-		}
+	thread_local! {
+		static SHADER_COMPILER: std::cell::RefCell<shaderc::Compiler> =
+			std::cell::RefCell::new(shaders::compiler::get_compiler().expect("couldn't create shader compiler"));
+		static SHADER_COMPILER_OPTIONS: shaderc::CompileOptions<'static> =
+			shaders::compiler::get_compile_options("data/hlsl").expect("couldn't create shader options");
 	}
-	shader
+
+	SHADER_COMPILER.with(|compiler| {
+		SHADER_COMPILER_OPTIONS.with(|options| {
+			let path = std::env::current_dir()?
+				.join("data/hlsl")
+				.join(&[file, ".hlsl"].concat());
+			let artifact =
+				shaders::compiler::compile_shader(&path, &mut compiler.borrow_mut(), &options);
+			let shader = artifact.map(|artifact| artifact.as_binary().to_owned());
+			#[cfg(feature = "shaderinfo")]
+			{
+				if let Ok(shader) = &shader {
+					shaders::debug::enumerate_bindings(&shader);
+				}
+			}
+			shader
+		})
+	})
 }
 
 #[cfg(not(feature = "hotreload"))]
