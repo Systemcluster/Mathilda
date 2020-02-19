@@ -2071,7 +2071,7 @@ dependencies = [
 [[package]]
 name = "tokio"
 version = "0.2.11"
-source = "git+https://github.com/tokio-rs/tokio#fc65951731506ba4bbbc08eed256b5e8b0d46655"
+source = "git+https://github.com/tokio-rs/tokio#b37e4a438037689956ade41ebe9e5ec64d53199f"
 dependencies = [
  "bytes",
  "pin-project-lite",
@@ -2346,7 +2346,7 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 [[package]]
 name = "winit"
 version = "0.21.0"
-source = "git+https://github.com/rust-windowing/winit#e88e8bc1942865098b98419f6f7f07f73fc26179"
+source = "git+https://github.com/rust-windowing/winit#522a6e329873720899241ca5516aae7138b351c3"
 dependencies = [
  "android_glue",
  "bitflags",

@@ -217,15 +217,20 @@ fn create_window(
 	builder.build(&eventloop).unwrap()
 }
 
-fn create_swap_chain_descriptor(window: &winit::window::Window) -> wgpu::SwapChainDescriptor {
+fn create_swap_chain_descriptor(
+	window: &winit::window::Window,
+) -> Option<wgpu::SwapChainDescriptor> {
 	let window_size = window.inner_size();
-	wgpu::SwapChainDescriptor {
+	if window_size.width == 0 || window_size.height == 0 {
+		return None;
+	}
+	Some(wgpu::SwapChainDescriptor {
 		usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
 		format: wgpu::TextureFormat::Bgra8Unorm,
 		width: window_size.width,
 		height: window_size.height,
 		present_mode: wgpu::PresentMode::NoVsync,
-	}
+	})
 }
 
 fn main() {
@@ -262,8 +267,9 @@ fn main() {
 		limits: wgpu::Limits::default(),
 	});
 
-	let mut swap_chain_descriptor = create_swap_chain_descriptor(&window);
-	let mut swap_chain = device.create_swap_chain(&surface, &swap_chain_descriptor);
+	let mut swap_chain_descriptor = None;
+	let mut swap_chain = None;
+	let mut texture_format = wgpu::TextureFormat::Bgra8Unorm;
 
 	window.set_visible(true);
 
@@ -271,7 +277,7 @@ fn main() {
 
 	let mut window_has_focus = true;
 	let mut recreate_pipeline = true;
-	let mut recreate_swapchain = false;
+	let mut recreate_swapchain = true;
 	let mut force_regenerate = false;
 	let mut paused = false;
 	let mut timer = FrameAccumTimer::new(20, 120f32);
@@ -307,13 +313,19 @@ fn main() {
 				}
 
 				if recreate_swapchain {
-					info!("recreating swapchain");
 					swap_chain_descriptor = create_swap_chain_descriptor(&window);
-					swap_chain = device.create_swap_chain(&surface, &swap_chain_descriptor);
-					recreate_swapchain = false;
+					if let Some(swap_chain_descriptor) = &swap_chain_descriptor {
+						info!("recreating swapchain");
+						texture_format = swap_chain_descriptor.format;
+						swap_chain =
+							Some(device.create_swap_chain(&surface, &swap_chain_descriptor));
+						recreate_swapchain = false;
+					} else {
+						swap_chain = None;
+					}
 				}
 				if recreate_pipeline {
-					match renderer::Renderer::init(&swap_chain_descriptor, &device) {
+					match renderer::Renderer::init(&device, texture_format) {
 						Err(ref error) => {
 							error!("Error initializing renderer:\n{:?}", error);
 						}
@@ -325,23 +337,25 @@ fn main() {
 					recreate_pipeline = false;
 					force_regenerate = true;
 				}
-				if let Some(ref mut renderer) = renderer {
-					let frame = swap_chain.get_next_texture();
-					if args != args_prev || force_regenerate {
-						args_prev = args;
-						let command = renderer.regenerate(&device, args);
-						queue.submit(&[command]);
-						force_regenerate = false;
-					}
-					match frame {
-						Ok(frame) => {
-							let command = renderer.render(&device, &frame.view);
+				if let Some(swap_chain) = &mut swap_chain {
+					if let Some(renderer) = &mut renderer {
+						let frame = swap_chain.get_next_texture();
+						if args != args_prev || force_regenerate {
+							args_prev = args;
+							let command = renderer.regenerate(&device, args);
 							queue.submit(&[command]);
+							force_regenerate = false;
 						}
-						Err(error) => {
-							error!("Couldn't get next texture:\n{:?}", error);
-						}
-					};
+						match frame {
+							Ok(frame) => {
+								let command = renderer.render(&device, &frame.view);
+								queue.submit(&[command]);
+							}
+							Err(error) => {
+								error!("Couldn't get next texture:\n{:?}", error);
+							}
+						};
+					}
 				}
 			}
 			Event::WindowEvent {

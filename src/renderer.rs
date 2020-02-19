@@ -26,10 +26,7 @@ pub struct Renderer {
 	pipeline_output: wgpu::RenderPipeline,
 }
 impl Renderer {
-	pub fn init(
-		swap_chain_descriptor: &wgpu::SwapChainDescriptor,
-		device: &wgpu::Device,
-	) -> Result<Self, Error> {
+	pub fn init(device: &wgpu::Device, texture_format: wgpu::TextureFormat) -> Result<Self, Error> {
 		let vs_module = device.create_shader_module(&get_shader("fullscreen.vert")?);
 		let fs_module_generate = device.create_shader_module(&get_shader("fbm1.frag")?);
 		let fs_module_output = device.create_shader_module(&get_shader("textured.frag")?);
@@ -252,7 +249,7 @@ impl Renderer {
 				}),
 				primitive_topology: wgpu::PrimitiveTopology::TriangleList,
 				color_states: &[wgpu::ColorStateDescriptor {
-					format: swap_chain_descriptor.format,
+					format: texture_format,
 					color_blend: wgpu::BlendDescriptor::REPLACE,
 					alpha_blend: wgpu::BlendDescriptor::REPLACE,
 					write_mask: wgpu::ColorWrite::ALL,
