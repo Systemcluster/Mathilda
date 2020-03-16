@@ -33,7 +33,7 @@ impl FrameAccumTimer {
 			.now
 			.signed_duration_since(self.start)
 			.num_microseconds()
-			.unwrap() as f64
+			.unwrap_or(0) as f64
 			/ 1000.0) as f32;
 		self.start = self.now;
 		self.frame_coll.push_back(self.frame_time);

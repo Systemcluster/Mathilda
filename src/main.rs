@@ -91,7 +91,6 @@
 	error_iter,
 	error_type_id,
 	exact_size_is_empty,
-	extra_log_consts,
 	fn_traits,
 	gen_future,
 	generator_trait,

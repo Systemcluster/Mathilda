@@ -1,4 +1,4 @@
-use failure::Error;
+use anyhow::Error;
 use zerocopy::{AsBytes, FromBytes};
 
 use super::resources::get_shader;

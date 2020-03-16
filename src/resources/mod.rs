@@ -1,10 +1,11 @@
-use failure::Error;
-
 pub mod shaders;
 
 #[cfg(feature = "hotreload")]
 pub fn get_image(file: &str) -> image::ImageResult<image::DynamicImage> {
-	let path = std::env::current_dir()?.join("data/images").join(file);
+	let path = std::env::current_dir()
+		.unwrap()
+		.join("data/images")
+		.join(file);
 	image::open(path)
 }
 
@@ -21,27 +22,26 @@ pub fn get_image(file: &str) -> image::ImageResult<image::DynamicImage> {
 }
 
 #[cfg(feature = "hotreload")]
-pub fn get_shader(file: &'static str) -> Result<Vec<u32>, Error> {
-	thread_local! {
-		static SHADER_COMPILER: std::cell::RefCell<shaderc::Compiler> =
-			std::cell::RefCell::new(shaders::compiler::get_compiler().expect("couldn't create shader compiler"));
-		static SHADER_COMPILER_OPTIONS: shaderc::CompileOptions<'static> =
-			shaders::compiler::get_compile_options("data/hlsl").expect("couldn't create shader options");
-	}
-
-	SHADER_COMPILER.with(|compiler| {
-		SHADER_COMPILER_OPTIONS.with(|options| {
-			let path = std::env::current_dir()?
+thread_local! {
+	static SHADER_COMPILER: std::cell::RefCell<shaderc::Compiler> =
+		std::cell::RefCell::new(shaders::compiler::get_compiler().expect("couldn't create shader compiler"));
+	static SHADER_COMPILER_OPTIONS: shaderc::CompileOptions<'static> =
+		shaders::compiler::get_compile_options("data/hlsl").expect("couldn't create shader options");
+}
+#[cfg(feature = "hotreload")]
+pub fn get_shader(file: &'static str) -> Result<Vec<u32>, shaderc::Error> {
+	SHADER_COMPILER_OPTIONS.with(|options| {
+		SHADER_COMPILER.with(|compiler| {
+			let path = std::env::current_dir()
+				.unwrap()
 				.join("data/hlsl")
 				.join(&[file, ".hlsl"].concat());
-			let artifact =
-				shaders::compiler::compile_shader(&path, &mut compiler.borrow_mut(), &options);
-			let shader = artifact.map(|artifact| artifact.as_binary().to_owned());
-			#[cfg(feature = "shaderinfo")]
-			{
-				if let Ok(shader) = &shader {
-					shaders::debug::enumerate_bindings(&shader);
-				}
+			let shader =
+				shaders::compiler::compile_shader(&path, &mut compiler.borrow_mut(), &options)
+					.map(|artifact| artifact.as_binary().to_owned());
+			if let Ok(shader) = &shader {
+				#[cfg(feature = "shaderinfo")]
+				shaders::debug::enumerate_bindings(&shader);
 			}
 			shader
 		})
@@ -51,7 +51,7 @@ pub fn get_shader(file: &'static str) -> Result<Vec<u32>, Error> {
 #[cfg(not(feature = "hotreload"))]
 static SHADERS: include_dir::Dir = include_dir::include_dir!("data/spirv");
 #[cfg(not(feature = "hotreload"))]
-pub fn get_shader(file: &'static str) -> Result<&[u32], Error> {
+pub fn get_shader(file: &'static str) -> std::io::Result<&[u32]> {
 	let shader = SHADERS
 		.get_file(&[file, ".hlsl.spirv"].concat())
 		.ok_or_else(|| {
@@ -62,8 +62,7 @@ pub fn get_shader(file: &'static str) -> Result<&[u32], Error> {
 		return Err(std::io::Error::new(
 			std::io::ErrorKind::InvalidData,
 			"non-aligned shader source",
-		)
-		.into());
+		));
 	}
 	#[cfg(target_endian = "little")]
 	#[allow(clippy::cast_ptr_alignment)]
@@ -75,8 +74,6 @@ pub fn get_shader(file: &'static str) -> Result<&[u32], Error> {
 		.map(|chunk| u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
 		.collect();
 	#[cfg(feature = "shaderinfo")]
-	{
-		shaders::debug::enumerate_bindings(&shader);
-	}
+	shaders::debug::enumerate_bindings(&shader);
 	Ok(shader)
 }

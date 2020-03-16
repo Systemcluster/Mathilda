@@ -1,14 +1,13 @@
-use failure::Error;
 use shaderc::{
-	CompilationArtifact, CompileOptions, Compiler, OptimizationLevel, ResolvedInclude, ShaderKind,
-	SourceLanguage,
+	CompilationArtifact, CompileOptions, Compiler, Error, OptimizationLevel, ResolvedInclude,
+	ShaderKind, SourceLanguage,
 };
 
 pub fn get_compiler() -> Option<Compiler> {
 	Compiler::new()
 }
 
-pub fn get_compile_options<'a, 'b: 'a>(shader_path: &'b str) -> Option<CompileOptions<'a>> {
+pub fn get_compile_options<'a>(shader_path: &str) -> Option<CompileOptions<'a>> {
 	let mut options = CompileOptions::new()?;
 	options.set_source_language(SourceLanguage::HLSL);
 	if cfg!(debug_assertions) {
@@ -18,16 +17,15 @@ pub fn get_compile_options<'a, 'b: 'a>(shader_path: &'b str) -> Option<CompileOp
 		options.set_optimization_level(OptimizationLevel::Performance);
 	}
 	options.set_auto_bind_uniforms(true);
+	let base = std::env::current_dir().unwrap();
+	let shader_path = base.join(shader_path);
 	options.set_include_callback(move |_file, _include_type, _source, _depth| {
-		let base = std::env::current_dir().map_err(|e| e.to_string())?;
-		let path = base.join(shader_path).join(_file);
-		let resolved_name = path.to_str().ok_or_else(|| "path is not valid utf-8")?;
-		let resolved_name = resolved_name.to_owned();
+		let file_path = shader_path.join(_file);
 		#[cfg(feature = "shaderinfo")]
 		{
-			let source = base.join(shader_path).join(_source);
+			let source = shader_path.join(_source);
 			let source = source.strip_prefix(&base).map_err(|e| e.to_string())?;
-			let target = base.join(shader_path).join(_file);
+			let target = shader_path.join(_file);
 			let target = target.strip_prefix(&base).map_err(|e| e.to_string())?;
 			log::info!(
 				"{}{} <- {}",
@@ -37,8 +35,8 @@ pub fn get_compile_options<'a, 'b: 'a>(shader_path: &'b str) -> Option<CompileOp
 			);
 		}
 		Ok(ResolvedInclude {
-			resolved_name,
-			content: std::fs::read_to_string(path).map_err(|e| e.to_string())?,
+			resolved_name: file_path.to_str().unwrap().to_owned(),
+			content: std::fs::read_to_string(file_path).map_err(|e| e.to_string())?,
 		})
 	});
 	Some(options)
@@ -49,7 +47,7 @@ pub fn compile_shader<AsPath: AsRef<std::path::Path>>(
 	compiler: &mut Compiler,
 	options: &CompileOptions,
 ) -> Result<CompilationArtifact, Error> {
-	let source = std::fs::read_to_string(&file)?;
+	let source = std::fs::read_to_string(&file).map_err(|e| Error::InternalError(e.to_string()))?;
 	let shader = compiler.compile_into_spirv(
 		source.as_str(),
 		ShaderKind::InferFromSource,

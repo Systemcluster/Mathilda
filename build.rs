@@ -1,9 +1,9 @@
 #![allow(unused_variables, dead_code)]
 
-#[path = "./src/resources/shaders/compiler.rs"]
-mod shaders;
-
 fn compile_spirv() {
+	#[path = "./src/resources/shaders/compiler.rs"]
+	mod shaders;
+
 	let shader_path = "data/hlsl";
 	let spirv_path = "data/spirv";
 
