@@ -45,13 +45,12 @@ lto = "thin"
 [features]
 default = []
 hotreload = ["shaderc"]
-shaderinfo = ["spirv-reflect"]
+shaderinfo = ["spirv-reflect", "log"]
 
 [build-dependencies]
-log = "0.4.8"
-failure = "0.1.6"
 shaderc = { git="https://github.com/google/shaderc-rs.git", features=["build-from-source"] }
 spirv-reflect = { git="https://github.com/gwihlidal/spirv-reflect-rs", optional=true }
+log = { version="0.4.8", optional=true }
 
 [dependencies]
 # graphics crates
@@ -59,27 +58,27 @@ wgpu = { package="wgpu", git="https://github.com/gfx-rs/wgpu-rs", branch="master
 winit = { git="https://github.com/rust-windowing/winit", branch="master" }
 spirv-reflect = { git="https://github.com/gwihlidal/spirv-reflect-rs", optional=true }
 shaderc = { git="https://github.com/google/shaderc-rs.git", features=["build-from-source"], optional=true }
-image = "0.23.0"
+image = "0.23.1"
 # sys crates
 log = "0.4.8"
-simple_logger = "1.5.0"
+simple_logger = "1.6.0"
 color-backtrace = "0.3.0"
 raw-cpuid = "7.0.3"
 sys-info = "= 0.5.8"
-os_info = "2.0.0"
+os_info = "2.0.2"
+dirs = "2.0.2"
 # util crates
 serde = { version = "1.0.104", features = ["derive"] }
+thiserror = "1.0"
+anyhow = "1.0"
 warmy = "0.13.0"
-failure = "0.1.6"
-itertools = "0.8.2"
+itertools = "0.9.0"
 rand = "0.7.3"
-dirs = "2.0.2"
-chrono = "0.4.10"
-tokio = { git="https://github.com/tokio-rs/tokio" }
-zerocopy = "0.2.8"
+chrono = "0.4.11"
+zerocopy = "0.3.0"
 derive-new = "0.5.8"
-derive_more = "0.99.2"
+derive_more = "0.99.3"
 smart-default = "0.6.0"
 cascade = "0.1.4"
-nalgebra = { version = "0.19.0", features = ["mint"] }
+nalgebra = { version = "0.20.0", features = ["mint"] }
 include_dir = "0.5.0"
