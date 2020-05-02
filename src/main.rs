@@ -36,7 +36,6 @@
 	doc_cfg,
 	doc_keyword,
 	doc_masked,
-	doc_spotlight,
 	external_doc,
 	exclusive_range_pattern,
 	exhaustive_patterns,
@@ -84,7 +83,6 @@
 	clamp,
 	coerce_unsized,
 	const_cstr_unchecked,
-	const_int_conversion,
 	const_saturating_int_methods,
 	const_transmute,
 	const_type_id,
@@ -112,7 +110,6 @@
 	trusted_len,
 	try_reserve,
 	try_trait,
-	unicode_version,
 	unsize,
 	vec_drain_as_slice,
 	vec_remove_item,
@@ -129,8 +126,7 @@ use time::*;
 use winit::{
 	event::{DeviceEvent, ElementState, Event, MouseScrollDelta, VirtualKeyCode, WindowEvent},
 	event_loop::{ControlFlow, EventLoop},
-	window::Icon,
-	window::WindowBuilder,
+	window::{Icon, WindowBuilder},
 };
 
 fn create_version_string() -> String {
@@ -153,8 +149,7 @@ fn create_panic_hook(
 	adapter_info: Option<wgpu::AdapterInfo>,
 ) -> Box<dyn Fn(&std::panic::PanicInfo<'_>) + 'static + Sync + Send> {
 	std::boxed::Box::new(move |panic| {
-		use color_backtrace::termcolor::NoColor;
-		use color_backtrace::*;
+		use color_backtrace::{termcolor::NoColor, *};
 		use std::io::prelude::*;
 		create_panic_handler(Settings::default())(panic);
 		if let Ok(mut file) = std::fs::File::create(format!(
@@ -198,8 +193,7 @@ fn create_panic_hook(
 }
 
 fn create_window(
-	window_title: &str,
-	eventloop: &winit::event_loop::EventLoop<()>,
+	window_title: &str, eventloop: &winit::event_loop::EventLoop<()>,
 ) -> winit::window::Window {
 	let icon = resources::get_image("evil2.png").unwrap();
 	let icon = icon.as_rgba8().unwrap();
@@ -228,7 +222,7 @@ fn create_swap_chain_descriptor(
 		format: wgpu::TextureFormat::Bgra8Unorm,
 		width: window_size.width,
 		height: window_size.height,
-		present_mode: wgpu::PresentMode::NoVsync,
+		present_mode: wgpu::PresentMode::Mailbox,
 	})
 }
 
@@ -244,27 +238,41 @@ fn main() {
 
 	info!("{}", create_version_string());
 
+	smol::run(start());
+}
+
+async fn start() {
 	let eventloop = EventLoop::new();
 	let window_title = "mathilda";
 	let window = create_window(&window_title, &eventloop);
 
-	let surface = wgpu::Surface::create(&window);
-	let adapter = wgpu::Adapter::request(
-		&wgpu::RequestAdapterOptions {
-			power_preference: wgpu::PowerPreference::Default,
-		},
-		wgpu::BackendBit::PRIMARY,
-	)
-	.unwrap();
+	let instance = wgpu::Instance::new();
+	let surface: wgpu::Surface = unsafe { instance.create_surface(&window) };
+	let adapter: wgpu::Adapter = instance
+		.request_adapter(
+			&wgpu::RequestAdapterOptions {
+				power_preference: wgpu::PowerPreference::Default,
+				compatible_surface: Some(&surface),
+			},
+			wgpu::BackendBit::DX12,
+		)
+		.await
+		.unwrap();
 
-	std::panic::set_hook(create_panic_hook(Some(adapter.get_info())));
+	// std::panic::set_hook(create_panic_hook(Some(adapter.get_info())));
 
-	let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor {
-		extensions: wgpu::Extensions {
-			anisotropic_filtering: false,
-		},
-		limits: wgpu::Limits::default(),
-	});
+	let (device, queue) = adapter
+		.request_device(
+			&wgpu::DeviceDescriptor {
+				extensions: wgpu::Extensions {
+					anisotropic_filtering: false,
+				},
+				limits: wgpu::Limits::default(),
+			},
+			None,
+		)
+		.await
+		.unwrap();
 
 	let mut swap_chain_descriptor = None;
 	let mut swap_chain = None;
@@ -342,13 +350,13 @@ fn main() {
 						if args != args_prev || force_regenerate {
 							args_prev = args;
 							let command = renderer.regenerate(&device, args);
-							queue.submit(&[command]);
+							queue.submit(Some(command));
 							force_regenerate = false;
 						}
 						match frame {
 							Ok(frame) => {
 								let command = renderer.render(&device, &frame.view);
-								queue.submit(&[command]);
+								queue.submit(Some(command));
 							}
 							Err(error) => {
 								error!("Couldn't get next texture:\n{:?}", error);

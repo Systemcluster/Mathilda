@@ -33,10 +33,11 @@ impl Renderer {
 		let cs_module = device.create_shader_module(&get_shader("modify.comp")?);
 
 		let uniform_buf = device
-			.create_buffer_mapped(
-				std::mem::size_of::<RendererArgs>(),
-				wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-			)
+			.create_buffer_mapped(&wgpu::BufferDescriptor {
+				size: std::mem::size_of::<RendererArgs>() as wgpu::BufferAddress,
+				usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+				label: None,
+			})
 			.finish();
 
 		let texture = device.create_texture(&wgpu::TextureDescriptor {
@@ -45,12 +46,12 @@ impl Renderer {
 				height: 1024,
 				depth: 1,
 			},
-			array_layer_count: 1,
 			mip_level_count: 1,
 			sample_count: 1,
 			dimension: wgpu::TextureDimension::D2,
 			format: wgpu::TextureFormat::Rgba32Float,
 			usage: wgpu::TextureUsage::all(),
+			label: None,
 		});
 		let texture_view = texture.create_default_view();
 		// let texture_buf = device.create_buffer(&wgpu::BufferDescriptor {
@@ -64,11 +65,12 @@ impl Renderer {
 		let (bind_group_generate, pipeline_generate) = {
 			let bind_group_layout_generate =
 				device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-					bindings: &[wgpu::BindGroupLayoutBinding {
+					bindings: &[wgpu::BindGroupLayoutEntry {
 						binding: 0,
 						visibility: wgpu::ShaderStage::FRAGMENT,
 						ty: wgpu::BindingType::UniformBuffer { dynamic: false },
 					}],
+					label: None,
 				});
 			let pipeline_layout_generate =
 				device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -83,6 +85,7 @@ impl Renderer {
 						range: 0..(std::mem::size_of::<RendererArgs>() as u64),
 					},
 				}],
+				label: None,
 			});
 			let pipeline_generate =
 				device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -110,11 +113,13 @@ impl Renderer {
 						write_mask: wgpu::ColorWrite::ALL,
 					}],
 					depth_stencil_state: None,
-					index_format: wgpu::IndexFormat::Uint16,
-					vertex_buffers: &[],
 					sample_count: 1,
 					alpha_to_coverage_enabled: false,
 					sample_mask: 0,
+					vertex_state: wgpu::VertexStateDescriptor {
+						index_format: wgpu::IndexFormat::Uint16,
+						vertex_buffers: &[],
+					},
 				});
 			(bind_group_generate, pipeline_generate)
 		};
@@ -124,19 +129,23 @@ impl Renderer {
 			let bind_group_layout_modify =
 				device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
 					bindings: &[
-						wgpu::BindGroupLayoutBinding {
+						wgpu::BindGroupLayoutEntry {
 							binding: 0,
 							visibility: wgpu::ShaderStage::COMPUTE,
 							ty: wgpu::BindingType::UniformBuffer { dynamic: false },
 						},
-						wgpu::BindGroupLayoutBinding {
+						wgpu::BindGroupLayoutEntry {
 							binding: 1,
 							visibility: wgpu::ShaderStage::COMPUTE,
 							ty: wgpu::BindingType::StorageTexture {
 								dimension: wgpu::TextureViewDimension::D2,
+								format: wgpu::TextureFormat::Rgba32Float,
+								readonly: false,
+								component_type: wgpu::TextureComponentType::Float,
 							},
 						},
 					],
+					label: None,
 				});
 			let pipeline_layout_modify =
 				device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -157,6 +166,7 @@ impl Renderer {
 						resource: wgpu::BindingResource::TextureView(&texture_view),
 					},
 				],
+				label: None,
 			});
 			let pipeline_modify =
 				device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
@@ -174,25 +184,27 @@ impl Renderer {
 			let bind_group_layout_output =
 				device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
 					bindings: &[
-						wgpu::BindGroupLayoutBinding {
+						wgpu::BindGroupLayoutEntry {
 							binding: 0,
 							visibility: wgpu::ShaderStage::FRAGMENT,
 							ty: wgpu::BindingType::UniformBuffer { dynamic: false },
 						},
-						wgpu::BindGroupLayoutBinding {
+						wgpu::BindGroupLayoutEntry {
 							binding: 1,
 							visibility: wgpu::ShaderStage::FRAGMENT,
 							ty: wgpu::BindingType::SampledTexture {
 								multisampled: false,
 								dimension: wgpu::TextureViewDimension::D2,
+								component_type: wgpu::TextureComponentType::Float,
 							},
 						},
-						wgpu::BindGroupLayoutBinding {
+						wgpu::BindGroupLayoutEntry {
 							binding: 2,
 							visibility: wgpu::ShaderStage::FRAGMENT,
-							ty: wgpu::BindingType::Sampler,
+							ty: wgpu::BindingType::Sampler { comparison: true },
 						},
 					],
+					label: None,
 				});
 			let pipeline_layout_output =
 				device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -224,11 +236,13 @@ impl Renderer {
 								mipmap_filter: wgpu::FilterMode::Nearest,
 								lod_min_clamp: -100.0,
 								lod_max_clamp: 100.0,
-								compare_function: wgpu::CompareFunction::Always,
+								compare: wgpu::CompareFunction::Always,
+								label: None,
 							},
 						)),
 					},
 				],
+				label: None,
 			});
 			let pipeline_output = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
 				layout: &pipeline_layout_output,
@@ -255,11 +269,13 @@ impl Renderer {
 					write_mask: wgpu::ColorWrite::ALL,
 				}],
 				depth_stencil_state: None,
-				index_format: wgpu::IndexFormat::Uint16,
-				vertex_buffers: &[],
 				sample_count: 1,
 				alpha_to_coverage_enabled: false,
 				sample_mask: 0,
+				vertex_state: wgpu::VertexStateDescriptor {
+					index_format: wgpu::IndexFormat::Uint16,
+					vertex_buffers: &[],
+				},
 			});
 			(bind_group_output, pipeline_output)
 		};
@@ -280,7 +296,7 @@ impl Renderer {
 
 	pub fn regenerate(&mut self, device: &wgpu::Device, args: RendererArgs) -> wgpu::CommandBuffer {
 		let mut encoder =
-			device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
+			device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 		let args_buf =
 			device.create_buffer_with_data(&[args].as_bytes(), wgpu::BufferUsage::COPY_SRC);
 		encoder.copy_buffer_to_buffer(
@@ -323,12 +339,10 @@ impl Renderer {
 	}
 
 	pub fn render(
-		&mut self,
-		device: &wgpu::Device,
-		view: &wgpu::TextureView,
+		&mut self, device: &wgpu::Device, view: &wgpu::TextureView,
 	) -> wgpu::CommandBuffer {
 		let mut encoder =
-			device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
+			device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 		// render pass to screen
 		{
 			let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
