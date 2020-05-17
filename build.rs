@@ -12,8 +12,10 @@ fn compile_spirv() {
 	let output = std::path::Path::new(&root).join(spirv_path);
 
 	let path = output.as_path().to_str().unwrap().to_owned();
-	std::fs::remove_dir_all(&output)
-		.expect(&["couldn't remove output directory: ", &path].concat());
+	if output.is_dir() {
+		std::fs::remove_dir_all(&output)
+			.expect(&["couldn't remove output directory: ", &path].concat());
+	}
 	std::fs::create_dir(&output).expect(&["couldn't create output directory: ", &path].concat());
 
 	let mut compiler = shaders::get_compiler().expect("couldn't create shader compiler");

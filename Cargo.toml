@@ -1,3 +1,5 @@
+cargo-features = ["resolver"]
+
 [package]
 name = "mathilda"
 description = ""
@@ -5,6 +7,7 @@ version = "0.0.1"
 authors = ["Christian Sdunek <me@systemcluster.me>"]
 repository = "https://github.com/Systemcluster/Mathilda"
 edition = "2018"
+resolver = "2"
 publish = false
 license = "unlicensed"
 
@@ -13,7 +16,7 @@ name = "mathilda"
 path = "src/main.rs"
 
 [profile.dev]
-opt-level = 0
+opt-level = 1
 panic = "unwind"
 debug = true
 debug-assertions = true
@@ -21,7 +24,7 @@ incremental = true
 lto = "off"
 
 [profile.test]
-opt-level = 0
+opt-level = 1
 debug = true
 debug-assertions = true
 incremental = true
@@ -46,40 +49,46 @@ lto = "thin"
 default = []
 hotreload = ["shaderc"]
 shaderinfo = ["spirv-reflect", "log"]
+secure = ["mimalloc/secure"]
+
 
 [build-dependencies]
-shaderc = { git="https://github.com/google/shaderc-rs", features=["build-from-source"] }
-spirv-reflect = { git="https://github.com/gwihlidal/spirv-reflect-rs", optional=true }
+shaderc = { git = "https://github.com/google/shaderc-rs", features = ["build-from-source"] }
+spirv-reflect = { git = "https://github.com/gwihlidal/spirv-reflect-rs", optional = true }
 log = { version = "0.4.8", optional = true }
 
 [dependencies]
 # graphics crates
-wgpu = { package="wgpu", git="https://github.com/gfx-rs/wgpu-rs", branch="master" }
-winit = { git="https://github.com/rust-windowing/winit", branch="master" }
-spirv-reflect = { git="https://github.com/gwihlidal/spirv-reflect-rs", optional=true }
-shaderc = { git="https://github.com/google/shaderc-rs", features=["build-from-source"], optional=true }
+wgpu = { package="wgpu", git = "https://github.com/gfx-rs/wgpu-rs", branch="master" }
+winit = { git = "https://github.com/rust-windowing/winit", branch="master" }
+spirv-reflect = { git = "https://github.com/gwihlidal/spirv-reflect-rs", optional = true }
+shaderc = { git = "https://github.com/google/shaderc-rs", features = ["build-from-source"], optional = true }
 image = "0.23.4"
 # sys crates
 log = "0.4.8"
 simple_logger = "1.6.0"
-color-backtrace = "0.3.0"
-raw-cpuid = "8.0.0"
+fern = { version = "0.6.0", features = ["colored"] }
+color-backtrace = "0.4.1"
+raw-cpuid = "8.1.0"
 sys-info = "0.6.1"
-os_info = "2.0.2"
+os_info = "2.0.5"
 dirs = "2.0.2"
+mimalloc = { version = "0.1.19", default-features = false }
 # util crates
-serde = { version = "1.0.106", features = ["derive"] }
-thiserror = "1.0.16"
-anyhow = "1.0.28"
+serde = { version = "1.0.110", features = ["derive"] }
+thiserror = "1.0.18"
+anyhow = "1.0.31"
 warmy = "0.13.0"
 itertools = "0.9.0"
 rand = "0.7.3"
 chrono = "0.4.11"
 zerocopy = "0.3.0"
 derive-new = "0.5.8"
-derive_more = "0.99.5"
+derive_more = "0.99.7"
 smart-default = "0.6.0"
 cascade = "0.1.4"
 nalgebra = { version = "0.21.0", features = ["mint"] }
-include_dir = "0.5.0"
-smol = "0.1.4"
+include_dir = "0.6.0"
+smol = "0.1.5"
+shipyard = "0.4.0"
+pretty_env_logger = "0.4.0"

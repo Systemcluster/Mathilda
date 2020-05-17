@@ -17,6 +17,7 @@
 	c_variadic,
 	concat_idents,
 	const_compare_raw_pointers,
+	const_eval_limit,
 	const_fn,
 	const_fn_union,
 	const_generics,
@@ -121,6 +122,7 @@ mod renderer;
 mod resources;
 mod time;
 
+use fern::colors::ColoredLevelConfig;
 use log::*;
 use time::*;
 use winit::{
@@ -128,6 +130,12 @@ use winit::{
 	event_loop::{ControlFlow, EventLoop},
 	window::{Icon, WindowBuilder},
 };
+
+use mimalloc::MiMalloc;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
+
 
 fn create_version_string() -> String {
 	use std::env::consts::{ARCH, OS};
@@ -149,9 +157,14 @@ fn create_panic_hook(
 	adapter_info: Option<wgpu::AdapterInfo>,
 ) -> Box<dyn Fn(&std::panic::PanicInfo<'_>) + 'static + Sync + Send> {
 	std::boxed::Box::new(move |panic| {
-		use color_backtrace::{termcolor::NoColor, *};
+		use color_backtrace::{
+			termcolor::{ColorChoice, NoColor, StandardStream},
+			BacktracePrinter,
+		};
 		use std::io::prelude::*;
-		create_panic_handler(Settings::default())(panic);
+		BacktracePrinter::new()
+			.print_panic_info(&panic, &mut StandardStream::stderr(ColorChoice::Always))
+			.unwrap();
 		if let Ok(mut file) = std::fs::File::create(format!(
 			"crash-{}.txt",
 			chrono::Local::now().format("%Y-%m-%d-%H%M%S%z")
@@ -185,9 +198,9 @@ fn create_panic_hook(
 				let _ = writeln!(file, "\tGPU: {:?}", adapter_info);
 			}
 			let _ = writeln!(file);
-			create_panic_handler(
-				Settings::new().output_stream(std::boxed::Box::new(NoColor::new(file))),
-			)(panic);
+			BacktracePrinter::new()
+				.print_panic_info(&panic, &mut NoColor::new(file))
+				.unwrap();
 		}
 	})
 }
@@ -229,12 +242,39 @@ fn create_swap_chain_descriptor(
 fn main() {
 	std::panic::set_hook(create_panic_hook(None));
 
-	let level_default = log::Level::Info;
-	let level: log::Level = std::env::var("LOG_LEVEL")
-		.map(|v| str::parse(&v))
-		.unwrap_or(Ok(level_default))
-		.unwrap_or(level_default);
-	simple_logger::init_with_level(level).unwrap();
+	// simple_logger::init_with_level(log::Level::Trace).unwrap();
+	// let colors = ColoredLevelConfig::new();
+	// fern::Dispatch::new()
+	// 	.format(move |out, message, record| {
+	// 		out.finish(format_args!(
+	// 			"{} {} [{}] {}",
+	// 			chrono::Utc::now().format("%Y-%m-%d %H:%M:%S,%3f"),
+	// 			colors.color(record.level()),
+	// 			record.module_path().unwrap_or_default(),
+	// 			message
+	// 		))
+	// 	})
+	// 	.level(
+	// 		std::env::var("LOG_LEVEL")
+	// 			.map(|v| str::parse(&v))
+	// 			.unwrap_or(Ok(log::LevelFilter::Trace))
+	// 			.unwrap_or(log::LevelFilter::Trace),
+	// 	)
+	// 	.level_for("wgpu_core", log::LevelFilter::Warn)
+	// 	.chain(std::io::stdout())
+	// 	.apply()
+	// 	.unwrap();
+
+	pretty_env_logger::formatted_timed_builder()
+		.filter_level(
+			std::env::var("LOG_LEVEL")
+				.map(|v| str::parse(&v))
+				.unwrap_or(Ok(log::LevelFilter::Trace))
+				.unwrap_or(log::LevelFilter::Trace),
+		)
+		.filter_module("wgpu_core", log::LevelFilter::Warn)
+		.filter_module("gfx_backend_vulkan", log::LevelFilter::Warn)
+		.init();
 
 	info!("{}", create_version_string());
 
@@ -254,7 +294,7 @@ async fn start() {
 				power_preference: wgpu::PowerPreference::Default,
 				compatible_surface: Some(&surface),
 			},
-			wgpu::BackendBit::DX12,
+			wgpu::BackendBit::PRIMARY,
 		)
 		.await
 		.unwrap();
@@ -283,10 +323,11 @@ async fn start() {
 	let mut renderer = None;
 
 	let mut window_has_focus = true;
+	let mut window_mouseover = true;
 	let mut recreate_pipeline = true;
 	let mut recreate_swapchain = true;
 	let mut force_regenerate = false;
-	let mut paused = false;
+	let mut paused = true;
 	let mut timer = FrameAccumTimer::new(20, 120f32);
 
 	let mut args = renderer::RendererArgs {
@@ -294,7 +335,7 @@ async fn start() {
 		mode: 0i32,
 		subregion: [0f32, 0f32, 1f32, 1f32],
 		offset: [0f32, 0f32],
-		level: 0.5f32,
+		level: 0.52f32,
 	};
 	let mut args_prev = args;
 
@@ -335,11 +376,11 @@ async fn start() {
 					match renderer::Renderer::init(&device, texture_format) {
 						Err(ref error) => {
 							error!("Error initializing renderer:\n{:?}", error);
-						}
+						},
 						Ok(new_renderer) => {
 							info!("renderer ok!");
 							renderer = Some(new_renderer)
-						}
+						},
 					}
 					recreate_pipeline = false;
 					force_regenerate = true;
@@ -357,54 +398,74 @@ async fn start() {
 							Ok(frame) => {
 								let command = renderer.render(&device, &frame.view);
 								queue.submit(Some(command));
-							}
+							},
 							Err(error) => {
 								error!("Couldn't get next texture:\n{:?}", error);
-							}
+							},
 						};
 					}
 				}
-			}
+			},
 			Event::WindowEvent {
 				event: WindowEvent::CloseRequested,
 				window_id,
 			} if window_id == window.id() => {
 				*control_flow = ControlFlow::Exit;
-			}
+			},
 			Event::WindowEvent {
 				event: WindowEvent::Resized(_),
 				window_id,
 			} if window_id == window.id() => {
 				info!("resized");
 				recreate_swapchain = true;
-			}
+			},
 			Event::WindowEvent {
 				event: WindowEvent::ScaleFactorChanged { .. },
 				window_id,
 			} if window_id == window.id() => {
 				info!("scale changed");
 				recreate_swapchain = true;
-			}
+			},
 			Event::WindowEvent {
 				event: WindowEvent::Focused(focused),
 				window_id,
 			} if window_id == window.id() => {
 				window_has_focus = focused;
-			}
+			},
 			Event::MainEventsCleared => {
 				if *control_flow != ControlFlow::Exit {
 					window.request_redraw();
 				}
-			}
+			},
+			Event::WindowEvent {
+				event: WindowEvent::CursorEntered { .. },
+				window_id,
+			} if window_id == window.id() => {
+				window_mouseover = true;
+			},
+			Event::WindowEvent {
+				event: WindowEvent::CursorLeft { .. },
+				window_id,
+			} if window_id == window.id() => {
+				window_mouseover = false;
+			},
 			Event::DeviceEvent {
 				event:
 					DeviceEvent::MouseWheel {
 						delta: MouseScrollDelta::LineDelta(_, y),
 					},
 				..
-			} if window_has_focus => {
+			} if window_mouseover => {
 				args.time += y * 50f32;
-			}
+			},
+			Event::DeviceEvent {
+				event: DeviceEvent::Motion { .. },
+				..
+			} => {},
+			Event::DeviceEvent {
+				event: DeviceEvent::MouseMotion { .. },
+				..
+			} => {},
 			Event::DeviceEvent {
 				event: DeviceEvent::Key(input),
 				..
@@ -413,31 +474,31 @@ async fn start() {
 				match input.virtual_keycode {
 					Some(F5) => {
 						recreate_pipeline = true;
-					}
+					},
 					Some(Space) => {
 						paused = !paused;
-					}
+					},
 					Some(Key0) => {
 						args.mode = 0;
-					}
+					},
 					Some(Key1) => {
 						args.mode = 1;
-					}
+					},
 					Some(Key2) => {
 						args.mode = 2;
-					}
+					},
 					Some(Key3) => {
 						args.mode = 3;
-					}
+					},
 					Some(Key4) => {
 						args.mode = 4;
-					}
+					},
 					Some(Key5) => {
 						args.mode = 5;
-					}
+					},
 					Some(Key6) => {
 						args.mode = 6;
-					}
+					},
 					Some(PageUp) => {
 						args.subregion = [
 							args.subregion[0] - 0.025 % 1.0,
@@ -445,7 +506,7 @@ async fn start() {
 							args.subregion[2] + 0.025 % 1.0,
 							args.subregion[3] + 0.025 % 1.0,
 						];
-					}
+					},
 					Some(PageDown) => {
 						args.subregion = [
 							args.subregion[0] + 0.025 % 1.0,
@@ -453,31 +514,31 @@ async fn start() {
 							args.subregion[2] - 0.025 % 1.0,
 							args.subregion[3] - 0.025 % 1.0,
 						];
-					}
+					},
 					Some(Home) => {
 						args.level = nalgebra::clamp(args.level + 0.02, 0f32, 1f32);
-					}
+					},
 					Some(End) => {
 						args.level = nalgebra::clamp(args.level - 0.02, 0f32, 1f32);
-					}
+					},
 					Some(Delete) => {
 						args.subregion = [0f32, 0f32, 1f32, 1f32];
-					}
+					},
 					Some(Up) => {
 						args.offset[1] -= 0.01;
-					}
+					},
 					Some(Down) => {
 						args.offset[1] += 0.01;
-					}
+					},
 					Some(Left) => {
 						args.offset[0] -= 0.01;
-					}
+					},
 					Some(Right) => {
 						args.offset[0] += 0.01;
-					}
+					},
 					_ => (),
 				}
-			}
+			},
 			_ => (),
 		}
 	});

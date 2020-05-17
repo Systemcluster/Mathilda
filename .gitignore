@@ -1,5 +1,6 @@
 /target
 **/*.rs.bk
 /backup
-
+/planner
+/prototype
 /data/spirv

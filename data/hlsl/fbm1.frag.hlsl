@@ -1,6 +1,6 @@
 #pragma shader_stage(fragment)
 
-cbuffer GlobalBuffer: register(b0) {
+cbuffer GlobalBuffer : register(b0) {
 	float4 subregion;
 	float2 offset;
 	float time;
@@ -17,32 +17,35 @@ struct Output {
 	float4 value : SV_TARGET0;
 };
 
-#include "noise/util.hlsl"
 #include "noise/curlnoise3d.hlsl"
+#include "noise/pnoise2d.hlsl"
+#include "noise/pnoise3d.hlsl"
+#include "noise/pnoise4d.hlsl"
 #include "noise/snoise2d.hlsl"
 #include "noise/snoise2dprd.hlsl"
 #include "noise/snoise3d.hlsl"
 #include "noise/snoise4d.hlsl"
-#include "noise/pnoise2d.hlsl"
-#include "noise/pnoise3d.hlsl"
-#include "noise/pnoise4d.hlsl"
+#include "noise/util.hlsl"
 #include "noise/wnoise2d.hlsl"
 #include "noise/wnoise3d.hlsl"
 #include "noise/wnoise4d.hlsl"
+#include "noise/osnoise4d.hlsl"
 
 Output main(Input input) {
 	Output o;
 
-
 	float4 seed = float4(
+		time / 12000,
+		sin(time / 10000 / 100 - 100) * 100,
+		cos(time / 10000 / 100 + 100) * 100,
 		time / 12000
-		// sin(time / 10000 / 100 - 100) * 100,
-		// cos(time / 10000 / 100 + 100) * 100,
-		// time / 12000
 	) + 0.025;
 
 	float2 position = input.uv.xy * 0.5 + 0.5;
-	position = float2(position.x * (subregion.z - subregion.x) + subregion.x, position.y * (subregion.w - subregion.y) + subregion.y);
+	position = float2(
+		position.x * (subregion.z - subregion.x) + subregion.x,
+		position.y * (subregion.w - subregion.y) + subregion.y
+	);
 	position += offset;
 	if (mode == 2) {
 		float pos_mod = 0.005 * (subregion.z - subregion.x);
@@ -53,7 +56,8 @@ Output main(Input input) {
 	float amplitude = 1;
 	int iterations = 12;
 	float lacunarity = 1.8;
-	float persistence = 0.6;
+	float persistence = 0.62;
+	float exponent = 1.25;
 
 	float amplitude_total = 0;
 
@@ -81,25 +85,19 @@ Output main(Input input) {
 		nz = oz + sin(s * PI2) * dxp,
 		nw = ow + sin(t * PI2) * dyp;
 
-
 	float hv = 0;
 	float nv = 0;
-	for(int i = 0; i < iterations; i+=1) {
-		nv = pnoise4d(
-			float4(nx, ny, nz, nw) * frequency
-		);
-
+	for (int i = 0; i < iterations; i += 1) {
+		nv = pnoise4d(float4(nx, ny, nz, nw) * frequency);
+		nv = clamp(nv * 1.4, -1.0, 1.0); // normalize to [-1, +1]
 		hv += nv * amplitude;
-
 		amplitude_total += amplitude;
-
 		amplitude *= persistence;
 		frequency *= lacunarity;
 	}
-	hv /= amplitude_total;
-	hv = hv * 0.5 + 0.5;
-	hv = clamp(hv, 0.0, 1.0);
-
+	hv = hv / amplitude_total;
+	hv = pow(abs(hv * 2), exponent) * sign(hv) * 0.5; // exponentiate
+	hv = clamp(hv * 0.5 + 0.5, 0.0, 1.0); // transform to [0, 1]
 
 	o.value = float4(0);
 	o.value.x = hv;
