@@ -9,14 +9,13 @@
 				"run",
 				"--bin",
 				"mathilda",
-				"--features",
-				"shaderinfo,hotreload,secure"
+				"--all-features",
 			],
 			"options": {
 				"cwd": "${workspaceFolder}",
 				"env": {
-					"RUST_BACKTRACE": "full",
-					"LOG_LEVEL": "info",
+					// "RUST_BACKTRACE": "full",
+					// "LOG_LEVEL": "info",
 					// "RUSTFLAGS": "-Zunstable-options -Ctarget-cpu=haswell -Ctarget-feature=-crt-static,+aes"
 				}
 			},
@@ -59,8 +58,8 @@
 			"options": {
 				"cwd": "${workspaceFolder}",
 				"env": {
-					"RUST_BACKTRACE": "full",
-					"LOG_LEVEL": "warn",
+					// "RUST_BACKTRACE": "full",
+					// "LOG_LEVEL": "warn",
 					// "RUSTFLAGS": "-Zunstable-options -Zthinlto -Zstrip-debuginfo-if-disabled=yes -Ctarget-cpu=haswell -Ctarget-feature=+crt-static,+aes"
 				}
 			}
@@ -75,8 +74,8 @@
 			"options": {
 				"cwd": "${workspaceFolder}",
 				"env": {
-					"RUST_BACKTRACE": "full",
-					"LOG_LEVEL": "debug",
+					// "RUST_BACKTRACE": "full",
+					// "LOG_LEVEL": "debug",
 					// "RUSTFLAGS": "-Zunstable-options -Ctarget-cpu=haswell -Ctarget-feature=-crt-static,+aes"
 				}
 			},
@@ -106,8 +105,8 @@
 			"options": {
 				"cwd": "${workspaceFolder}",
 				"env": {
-					"RUST_BACKTRACE": "full",
-					"LOG_LEVEL": "debug",
+					// "RUST_BACKTRACE": "full",
+					// "LOG_LEVEL": "debug",
 					// "RUSTFLAGS": "-Zunstable-options -Zthinlto -Ctarget-cpu=haswell -Ctarget-feature=-crt-static,+aes"
 				}
 			},

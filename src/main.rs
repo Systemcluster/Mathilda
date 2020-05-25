@@ -122,14 +122,14 @@ mod renderer;
 mod resources;
 mod time;
 
-use fern::colors::ColoredLevelConfig;
 use log::*;
 use time::*;
 use winit::{
 	event::{DeviceEvent, ElementState, Event, MouseScrollDelta, VirtualKeyCode, WindowEvent},
 	event_loop::{ControlFlow, EventLoop},
-	window::{Icon, WindowBuilder},
+	window::{Icon, Window, WindowBuilder},
 };
+
 
 use mimalloc::MiMalloc;
 
@@ -242,50 +242,32 @@ fn create_swap_chain_descriptor(
 fn main() {
 	std::panic::set_hook(create_panic_hook(None));
 
-	// simple_logger::init_with_level(log::Level::Trace).unwrap();
-	// let colors = ColoredLevelConfig::new();
-	// fern::Dispatch::new()
-	// 	.format(move |out, message, record| {
-	// 		out.finish(format_args!(
-	// 			"{} {} [{}] {}",
-	// 			chrono::Utc::now().format("%Y-%m-%d %H:%M:%S,%3f"),
-	// 			colors.color(record.level()),
-	// 			record.module_path().unwrap_or_default(),
-	// 			message
-	// 		))
-	// 	})
-	// 	.level(
-	// 		std::env::var("LOG_LEVEL")
-	// 			.map(|v| str::parse(&v))
-	// 			.unwrap_or(Ok(log::LevelFilter::Trace))
-	// 			.unwrap_or(log::LevelFilter::Trace),
-	// 	)
-	// 	.level_for("wgpu_core", log::LevelFilter::Warn)
-	// 	.chain(std::io::stdout())
-	// 	.apply()
-	// 	.unwrap();
-
 	pretty_env_logger::formatted_timed_builder()
 		.filter_level(
 			std::env::var("LOG_LEVEL")
 				.map(|v| str::parse(&v))
-				.unwrap_or(Ok(log::LevelFilter::Trace))
-				.unwrap_or(log::LevelFilter::Trace),
+				.unwrap_or(Ok(log::LevelFilter::Warn))
+				.unwrap_or(log::LevelFilter::Warn),
 		)
-		.filter_module("wgpu_core", log::LevelFilter::Warn)
-		.filter_module("gfx_backend_vulkan", log::LevelFilter::Warn)
+		.filter_module("mathilda", log::LevelFilter::Trace)
 		.init();
 
 	info!("{}", create_version_string());
 
-	smol::run(start());
+	let eventloop = EventLoop::new();
+	let window = create_window(&env!("CARGO_PKG_NAME"), &eventloop);
+
+	// for _ in 1..sys_info::cpu_num().unwrap() {
+	// 	std::thread::spawn(|| smol::run(futures::future::pending::<()>()));
+	// }
+	// smol::block_on(async {
+	// 	smol::Task::spawn(start(eventloop, window)).await;
+	// });
+	// smol::run(start())
+	futures::executor::block_on(start(eventloop, window));
 }
 
-async fn start() {
-	let eventloop = EventLoop::new();
-	let window_title = "mathilda";
-	let window = create_window(&window_title, &eventloop);
-
+async fn start(eventloop: EventLoop<()>, window: Window) {
 	let instance = wgpu::Instance::new();
 	let surface: wgpu::Surface = unsafe { instance.create_surface(&window) };
 	let adapter: wgpu::Adapter = instance
@@ -349,7 +331,7 @@ async fn start() {
 					window.set_title(
 						format!(
 							"{} ({:.1} fps / {:.3} ms)",
-							window_title,
+							env!("CARGO_PKG_NAME"),
 							timer.frames_per_second_smooth(),
 							timer.frame_time_smooth()
 						)
@@ -387,7 +369,7 @@ async fn start() {
 				}
 				if let Some(swap_chain) = &mut swap_chain {
 					if let Some(renderer) = &mut renderer {
-						let frame = swap_chain.get_next_texture();
+						let frame = swap_chain.get_next_frame();
 						if args != args_prev || force_regenerate {
 							args_prev = args;
 							let command = renderer.regenerate(&device, args);
@@ -396,7 +378,7 @@ async fn start() {
 						}
 						match frame {
 							Ok(frame) => {
-								let command = renderer.render(&device, &frame.view);
+								let command = renderer.render(&device, &frame.output.view);
 								queue.submit(Some(command));
 							},
 							Err(error) => {
@@ -498,6 +480,15 @@ async fn start() {
 					},
 					Some(Key6) => {
 						args.mode = 6;
+					},
+					Some(Key7) => {
+						args.mode = 7;
+					},
+					Some(Key8) => {
+						args.mode = 8;
+					},
+					Some(Key9) => {
+						args.mode = 9;
 					},
 					Some(PageUp) => {
 						args.subregion = [

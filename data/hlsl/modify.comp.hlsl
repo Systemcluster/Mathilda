@@ -20,5 +20,7 @@ struct Input {
 	uint2 dims;
 	map.GetDimensions(dims.x, dims.y);
 
-	map[input.id.xy] *= 1.0;
+
+
+	// map[input.id.xy] *= 1.0;
 }

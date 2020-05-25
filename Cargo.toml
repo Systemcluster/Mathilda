@@ -1,4 +1,4 @@
-cargo-features = ["resolver"]
+cargo-features = ["resolver", "strip"]
 
 [package]
 name = "mathilda"
@@ -37,6 +37,7 @@ debug = false
 debug-assertions = false
 incremental = false
 lto = "thin"
+strip = "symbols"
 
 [profile.bench]
 opt-level = 3
@@ -56,6 +57,7 @@ secure = ["mimalloc/secure"]
 shaderc = { git = "https://github.com/google/shaderc-rs", features = ["build-from-source"] }
 spirv-reflect = { git = "https://github.com/gwihlidal/spirv-reflect-rs", optional = true }
 log = { version = "0.4.8", optional = true }
+jwalk = "0.5.1"
 
 [dependencies]
 # graphics crates
@@ -66,17 +68,16 @@ shaderc = { git = "https://github.com/google/shaderc-rs", features = ["build-fro
 image = "0.23.4"
 # sys crates
 log = "0.4.8"
-simple_logger = "1.6.0"
-fern = { version = "0.6.0", features = ["colored"] }
-color-backtrace = "0.4.1"
+pretty_env_logger = "0.4.0"
+color-backtrace = "0.4.2"
 raw-cpuid = "8.1.0"
-sys-info = "0.6.1"
-os_info = "2.0.5"
+sys-info = "0.7.0"
+os_info = "2.0.6"
 dirs = "2.0.2"
 mimalloc = { version = "0.1.19", default-features = false }
 # util crates
-serde = { version = "1.0.110", features = ["derive"] }
-thiserror = "1.0.18"
+serde = { version = "1.0.111", features = ["derive"] }
+thiserror = "1.0.19"
 anyhow = "1.0.31"
 warmy = "0.13.0"
 itertools = "0.9.0"
@@ -89,6 +90,6 @@ smart-default = "0.6.0"
 cascade = "0.1.4"
 nalgebra = { version = "0.21.0", features = ["mint"] }
 include_dir = "0.6.0"
-smol = "0.1.5"
-shipyard = "0.4.0"
-pretty_env_logger = "0.4.0"
+smol = "0.1.10"
+futures = "0.3.5"
+shipyard = { git = "https://github.com/leudz/shipyard" }

@@ -36,14 +36,14 @@ impl Renderer {
 			.create_buffer_mapped(&wgpu::BufferDescriptor {
 				size: std::mem::size_of::<RendererArgs>() as wgpu::BufferAddress,
 				usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-				label: Some("renderer args"),
+				label: None,
 			})
 			.finish();
 
 		let texture = device.create_texture(&wgpu::TextureDescriptor {
 			size: wgpu::Extent3d {
-				width: 1024,
-				height: 1024,
+				width: 4096,
+				height: 4096,
 				depth: 1,
 			},
 			mip_level_count: 1,
@@ -70,7 +70,7 @@ impl Renderer {
 						visibility: wgpu::ShaderStage::FRAGMENT,
 						ty: wgpu::BindingType::UniformBuffer { dynamic: false },
 					}],
-					label: Some("generate layout"),
+					label: None,
 				});
 			let pipeline_layout_generate =
 				device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -82,7 +82,7 @@ impl Renderer {
 					binding: 0,
 					resource: wgpu::BindingResource::Buffer(renderer_args.slice(..)),
 				}],
-				label: Some("generate bindgroup"),
+				label: None,
 			});
 			let pipeline_generate =
 				device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -142,7 +142,7 @@ impl Renderer {
 							},
 						},
 					],
-					label: Some("modify layout"),
+					label: None,
 				});
 			let pipeline_layout_modify =
 				device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -160,7 +160,7 @@ impl Renderer {
 						resource: wgpu::BindingResource::TextureView(&texture_view),
 					},
 				],
-				label: Some("modify bindgroup"),
+				label: None,
 			});
 			let pipeline_modify =
 				device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
@@ -198,7 +198,7 @@ impl Renderer {
 							ty: wgpu::BindingType::Sampler { comparison: true },
 						},
 					],
-					label: Some("output layout"),
+					label: None,
 				});
 			let pipeline_layout_output =
 				device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -228,12 +228,12 @@ impl Renderer {
 								lod_min_clamp: -100.0,
 								lod_max_clamp: 100.0,
 								compare: wgpu::CompareFunction::Always,
-								label: Some("output sampler"),
+								label: None,
 							},
 						)),
 					},
 				],
-				label: Some("output bindgroup"),
+				label: None,
 			});
 			let pipeline_output = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
 				layout: &pipeline_layout_output,
@@ -287,7 +287,7 @@ impl Renderer {
 
 	pub fn regenerate(&mut self, device: &wgpu::Device, args: RendererArgs) -> wgpu::CommandBuffer {
 		let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-			label: Some("regenerate command encoder"),
+			label: None,
 		});
 		let args_buf =
 			device.create_buffer_with_data(&[args].as_bytes(), wgpu::BufferUsage::COPY_SRC);
@@ -334,7 +334,7 @@ impl Renderer {
 		&mut self, device: &wgpu::Device, view: &wgpu::TextureView,
 	) -> wgpu::CommandBuffer {
 		let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-			label: Some("render command encoder"),
+			label: None,
 		});
 		// render pass to screen
 		{

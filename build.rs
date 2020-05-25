@@ -42,9 +42,17 @@ fn compile_spirv() {
 			);
 		}
 	}
+
+	for entry in jwalk::WalkDir::new(shader_path)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
+        println!("cargo:rerun-if-changed={}", entry.path().display());
+    }
 }
 
 fn main() {
+	println!("cargo:rerun-if-changed=build.rs");
 	#[cfg(not(feature = "hotreload"))]
 	{
 		compile_spirv();

@@ -17,6 +17,7 @@ struct Output {
 	float4 value : SV_TARGET0;
 };
 
+#include "noise/util.hlsl"
 #include "noise/curlnoise3d.hlsl"
 #include "noise/pnoise2d.hlsl"
 #include "noise/pnoise3d.hlsl"
@@ -25,7 +26,6 @@ struct Output {
 #include "noise/snoise2dprd.hlsl"
 #include "noise/snoise3d.hlsl"
 #include "noise/snoise4d.hlsl"
-#include "noise/util.hlsl"
 #include "noise/wnoise2d.hlsl"
 #include "noise/wnoise3d.hlsl"
 #include "noise/wnoise4d.hlsl"
@@ -99,7 +99,6 @@ Output main(Input input) {
 	hv = pow(abs(hv * 2), exponent) * sign(hv) * 0.5; // exponentiate
 	hv = clamp(hv * 0.5 + 0.5, 0.0, 1.0); // transform to [0, 1]
 
-	o.value = float4(0);
-	o.value.x = hv;
+	o.value = float4(hv, 0, 0, 0);
 	return o;
 }
