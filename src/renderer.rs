@@ -32,13 +32,12 @@ impl Renderer {
 		let fs_module_output = device.create_shader_module(&get_shader("textured.frag")?);
 		let cs_module = device.create_shader_module(&get_shader("modify.comp")?);
 
-		let renderer_args = device
-			.create_buffer_mapped(&wgpu::BufferDescriptor {
-				size: std::mem::size_of::<RendererArgs>() as wgpu::BufferAddress,
-				usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-				label: None,
-			})
-			.finish();
+		let renderer_args = device.create_buffer(&wgpu::BufferDescriptor {
+			size: std::mem::size_of::<RendererArgs>() as wgpu::BufferAddress,
+			usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+			label: None,
+			mapped_at_creation: true,
+		});
 
 		let texture = device.create_texture(&wgpu::TextureDescriptor {
 			size: wgpu::Extent3d {
@@ -227,7 +226,8 @@ impl Renderer {
 								mipmap_filter: wgpu::FilterMode::Nearest,
 								lod_min_clamp: -100.0,
 								lod_max_clamp: 100.0,
-								compare: wgpu::CompareFunction::Always,
+								compare: None,
+								anisotropy_clamp: None,
 								label: None,
 							},
 						)),
@@ -286,9 +286,8 @@ impl Renderer {
 	}
 
 	pub fn regenerate(&mut self, device: &wgpu::Device, args: RendererArgs) -> wgpu::CommandBuffer {
-		let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-			label: None,
-		});
+		let mut encoder =
+			device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 		let args_buf =
 			device.create_buffer_with_data(&[args].as_bytes(), wgpu::BufferUsage::COPY_SRC);
 		encoder.copy_buffer_to_buffer(
@@ -333,9 +332,8 @@ impl Renderer {
 	pub fn render(
 		&mut self, device: &wgpu::Device, view: &wgpu::TextureView,
 	) -> wgpu::CommandBuffer {
-		let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-			label: None,
-		});
+		let mut encoder =
+			device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 		// render pass to screen
 		{
 			let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {

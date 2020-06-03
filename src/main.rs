@@ -54,6 +54,7 @@
 	non_ascii_idents,
 	optimize_attribute,
 	optin_builtin_traits,
+	or_patterns,
 	panic_runtime,
 	platform_intrinsics,
 	plugin,
@@ -120,6 +121,7 @@
 
 mod renderer;
 mod resources;
+mod states;
 mod time;
 
 use log::*;
@@ -286,9 +288,7 @@ async fn start(eventloop: EventLoop<()>, window: Window) {
 	let (device, queue) = adapter
 		.request_device(
 			&wgpu::DeviceDescriptor {
-				extensions: wgpu::Extensions {
-					anisotropic_filtering: false,
-				},
+				extensions: wgpu::Extensions::empty(),
 				limits: wgpu::Limits::default(),
 			},
 			None,

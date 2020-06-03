@@ -65,7 +65,7 @@ wgpu = { package="wgpu", git = "https://github.com/gfx-rs/wgpu-rs", branch="mast
 winit = { git = "https://github.com/rust-windowing/winit", branch="master" }
 spirv-reflect = { git = "https://github.com/gwihlidal/spirv-reflect-rs", optional = true }
 shaderc = { git = "https://github.com/google/shaderc-rs", features = ["build-from-source"], optional = true }
-image = "0.23.4"
+image = { version = "0.23.4", default-features = false, features = ["png"] }
 # sys crates
 log = "0.4.8"
 pretty_env_logger = "0.4.0"
@@ -90,6 +90,6 @@ smart-default = "0.6.0"
 cascade = "0.1.4"
 nalgebra = { version = "0.21.0", features = ["mint"] }
 include_dir = "0.6.0"
-smol = "0.1.10"
+smol = "0.1.11"
 futures = "0.3.5"
 shipyard = { git = "https://github.com/leudz/shipyard" }
