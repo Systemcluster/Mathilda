@@ -1,3 +1,5 @@
+use zerocopy::{AsBytes, FromBytes};
+
 use super::State;
 
 #[derive(Copy, Clone, PartialEq, AsBytes, FromBytes)]
@@ -25,4 +27,6 @@ pub struct Generator {
 	args: RendererArgs,
 }
 
-impl State for Generator {}
+// impl State for Generator {
+
+// }

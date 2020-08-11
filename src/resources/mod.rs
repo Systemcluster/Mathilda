@@ -39,9 +39,9 @@ pub fn get_shader(file: &'static str) -> Result<Vec<u32>, shaderc::Error> {
 			let shader =
 				shaders::compiler::compile_shader(&path, &mut compiler.borrow_mut(), &options)
 					.map(|artifact| artifact.as_binary().to_owned());
-			if let Ok(shader) = &shader {
+			if let Ok(_shader) = &shader {
 				#[cfg(feature = "shaderinfo")]
-				shaders::debug::enumerate_bindings(&shader);
+				shaders::debug::enumerate_bindings(&_shader);
 			}
 			shader
 		})

@@ -16,14 +16,11 @@
 	box_syntax,
 	c_variadic,
 	concat_idents,
-	const_compare_raw_pointers,
 	const_eval_limit,
 	const_fn,
 	const_fn_union,
 	const_generics,
-	const_if_match,
 	const_in_array_repeat_expressions,
-	const_loop,
 	const_mut_refs,
 	const_panic,
 	const_raw_ptr_deref,
@@ -86,7 +83,6 @@
 	coerce_unsized,
 	const_cstr_unchecked,
 	const_saturating_int_methods,
-	const_transmute,
 	const_type_id,
 	error_iter,
 	error_type_id,
@@ -113,7 +109,6 @@
 	try_reserve,
 	try_trait,
 	unsize,
-	vec_drain_as_slice,
 	vec_remove_item,
 	vec_resize_default,
 	wrapping_next_power_of_two
@@ -270,33 +265,30 @@ fn main() {
 }
 
 async fn start(eventloop: EventLoop<()>, window: Window) {
-	let instance = wgpu::Instance::new();
+	let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
 	let surface: wgpu::Surface = unsafe { instance.create_surface(&window) };
 	let adapter: wgpu::Adapter = instance
-		.request_adapter(
-			&wgpu::RequestAdapterOptions {
-				power_preference: wgpu::PowerPreference::Default,
-				compatible_surface: Some(&surface),
-			},
-			wgpu::BackendBit::PRIMARY,
-		)
+		.request_adapter(&wgpu::RequestAdapterOptions {
+			power_preference: wgpu::PowerPreference::Default,
+			compatible_surface: Some(&surface),
+		})
 		.await
 		.unwrap();
 
-	// std::panic::set_hook(create_panic_hook(Some(adapter.get_info())));
+	std::panic::set_hook(create_panic_hook(Some(adapter.get_info())));
 
 	let (device, queue) = adapter
 		.request_device(
 			&wgpu::DeviceDescriptor {
-				extensions: wgpu::Extensions::empty(),
 				limits: wgpu::Limits::default(),
+				features: wgpu::Features::default(),
+				shader_validation: true,
 			},
 			None,
 		)
 		.await
 		.unwrap();
 
-	let mut swap_chain_descriptor = None;
 	let mut swap_chain = None;
 	let mut texture_format = wgpu::TextureFormat::Bgra8Unorm;
 
@@ -343,8 +335,7 @@ async fn start(eventloop: EventLoop<()>, window: Window) {
 				}
 
 				if recreate_swapchain {
-					swap_chain_descriptor = create_swap_chain_descriptor(&window);
-					if let Some(swap_chain_descriptor) = &swap_chain_descriptor {
+					if let Some(swap_chain_descriptor) = &create_swap_chain_descriptor(&window) {
 						info!("recreating swapchain");
 						texture_format = swap_chain_descriptor.format;
 						swap_chain =
@@ -369,7 +360,7 @@ async fn start(eventloop: EventLoop<()>, window: Window) {
 				}
 				if let Some(swap_chain) = &mut swap_chain {
 					if let Some(renderer) = &mut renderer {
-						let frame = swap_chain.get_next_frame();
+						let frame = swap_chain.get_current_frame();
 						if args != args_prev || force_regenerate {
 							args_prev = args;
 							let command = renderer.regenerate(&device, args);

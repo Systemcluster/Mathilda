@@ -9,7 +9,8 @@
 				"run",
 				"--bin",
 				"mathilda",
-				"--all-features",
+				"--features",
+				"hotreload"
 			],
 			"options": {
 				"cwd": "${workspaceFolder}",

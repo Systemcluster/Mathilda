@@ -1,95 +1,95 @@
 cargo-features = ["resolver", "strip"]
 
 [package]
-name = "mathilda"
-description = ""
-version = "0.0.1"
 authors = ["Christian Sdunek <me@systemcluster.me>"]
-repository = "https://github.com/Systemcluster/Mathilda"
+description = ""
 edition = "2018"
-resolver = "2"
-publish = false
 license = "unlicensed"
+name = "mathilda"
+publish = false
+repository = "https://github.com/Systemcluster/Mathilda"
+resolver = "2"
+version = "0.0.1"
 
 [[bin]]
 name = "mathilda"
 path = "src/main.rs"
 
 [profile.dev]
-opt-level = 1
-panic = "unwind"
 debug = true
 debug-assertions = true
 incremental = true
 lto = "off"
+opt-level = 0
+panic = "unwind"
+
+[profile.dev.package."*"]
+opt-level = 3
 
 [profile.test]
-opt-level = 1
 debug = true
 debug-assertions = true
 incremental = true
 lto = "off"
+opt-level = 1
 
 [profile.release]
-opt-level = 3
-panic = "abort"
 debug = false
 debug-assertions = false
 incremental = false
 lto = "thin"
+opt-level = 3
+panic = "abort"
 strip = "symbols"
 
 [profile.bench]
-opt-level = 3
 debug = false
 debug-assertions = false
 incremental = false
 lto = "thin"
+opt-level = 3
 
 [features]
 default = []
 hotreload = ["shaderc"]
-shaderinfo = ["spirv-reflect", "log"]
 secure = ["mimalloc/secure"]
-
+shaderinfo = ["spirv-reflect", "log"]
 
 [build-dependencies]
-shaderc = { git = "https://github.com/google/shaderc-rs", features = ["build-from-source"] }
-spirv-reflect = { git = "https://github.com/gwihlidal/spirv-reflect-rs", optional = true }
-log = { version = "0.4.8", optional = true }
 jwalk = "0.5.1"
+log = { version = "0.4.11", optional = true }
+shaderc = {git = "https://github.com/google/shaderc-rs", features = ["build-from-source"]}
+spirv-reflect = {git = "https://github.com/gwihlidal/spirv-reflect-rs", optional = true}
 
 [dependencies]
 # graphics crates
-wgpu = { package="wgpu", git = "https://github.com/gfx-rs/wgpu-rs", branch="master" }
-winit = { git = "https://github.com/rust-windowing/winit", branch="master" }
-spirv-reflect = { git = "https://github.com/gwihlidal/spirv-reflect-rs", optional = true }
-shaderc = { git = "https://github.com/google/shaderc-rs", features = ["build-from-source"], optional = true }
-image = { version = "0.23.4", default-features = false, features = ["png"] }
+image = { version = "0.23.8", default-features = false, features = ["png"] }
+shaderc = {git = "https://github.com/google/shaderc-rs", features = ["build-from-source"], optional = true}
+spirv-reflect = {git = "https://github.com/gwihlidal/spirv-reflect-rs", optional = true}
+wgpu = {package = "wgpu", git = "https://github.com/gfx-rs/wgpu-rs", branch = "master"}
+winit = {git = "https://github.com/rust-windowing/winit", branch = "master"}
 # sys crates
-log = "0.4.8"
-pretty_env_logger = "0.4.0"
 color-backtrace = "0.4.2"
-raw-cpuid = "8.1.0"
-sys-info = "0.7.0"
-os_info = "2.0.6"
-dirs = "2.0.2"
+dirs = "3.0.1"
+log = "0.4.11"
 mimalloc = { version = "0.1.19", default-features = false }
+os_info = "2.0.8"
+pretty_env_logger = "0.4.0"
+raw-cpuid = "8.1.1"
+sys-info = "0.7.0"
 # util crates
-serde = { version = "1.0.111", features = ["derive"] }
-thiserror = "1.0.19"
-anyhow = "1.0.31"
-warmy = "0.13.0"
-itertools = "0.9.0"
-rand = "0.7.3"
-chrono = "0.4.11"
-zerocopy = "0.3.0"
-derive-new = "0.5.8"
-derive_more = "0.99.7"
-smart-default = "0.6.0"
+anyhow = "1.0.32"
 cascade = "0.1.4"
-nalgebra = { version = "0.21.0", features = ["mint"] }
-include_dir = "0.6.0"
-smol = "0.1.11"
+chrono = "0.4.13"
+derive-new = "0.5.8"
+derive_more = "0.99.9"
 futures = "0.3.5"
-shipyard = { git = "https://github.com/leudz/shipyard" }
+include_dir = "0.6.0"
+itertools = "0.9.0"
+nalgebra = { version = "0.21.1", features = ["mint"] }
+rand = "0.7.3"
+serde = { version = "1.0.115", features = ["derive"] }
+shipyard = {git = "https://github.com/leudz/shipyard", default-features = false, features = ["std", "panic", "parallel", "serde1"]}
+smart-default = "0.6.0"
+thiserror = "1.0.20"
+zerocopy = "0.3.0"
