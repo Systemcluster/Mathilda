@@ -1,4 +1,4 @@
-#![allow(unused_variables, dead_code)]
+#![allow(unused_variables, dead_code, clippy::expect_fun_call)]
 
 fn compile_spirv() {
 	#[path = "./src/resources/shaders/compiler.rs"]
@@ -44,11 +44,11 @@ fn compile_spirv() {
 	}
 
 	for entry in jwalk::WalkDir::new(shader_path)
-        .into_iter()
-        .filter_map(|e| e.ok())
-    {
-        println!("cargo:rerun-if-changed={}", entry.path().display());
-    }
+		.into_iter()
+		.filter_map(|e| e.ok())
+	{
+		println!("cargo:rerun-if-changed={}", entry.path().display());
+	}
 }
 
 fn main() {

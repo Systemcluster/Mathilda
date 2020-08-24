@@ -27,7 +27,8 @@ impl FrameAccumTimer {
 			callback_interval,
 		}
 	}
-	pub fn update<F: Fn(&Self)>(&mut self, accum_callback: F) {
+
+	pub fn update(&mut self) {
 		self.now = chrono::Utc::now().naive_utc().time();
 		self.frame_time = (self
 			.now
@@ -38,10 +39,13 @@ impl FrameAccumTimer {
 		self.start = self.now;
 		self.frame_coll.push_back(self.frame_time);
 		self.frame_time_accum += self.frame_time;
+	}
+
+	pub fn trigger(&mut self, callback: impl Fn(&Self)) {
 		if self.frame_time_accum >= self.callback_interval {
 			self.frame_time_smooth =
 				self.frame_coll.iter().sum::<f32>() / self.frame_coll.len() as f32;
-			accum_callback(&self);
+			callback(&self);
 			self.frame_time_accum -= self.callback_interval;
 		}
 		if self.frame_coll.len() >= self.frame_smooth_count {
@@ -49,17 +53,11 @@ impl FrameAccumTimer {
 		}
 	}
 
-	pub fn frame_time(&self) -> f32 {
-		self.frame_time
-	}
-	pub fn frame_time_smooth(&self) -> f32 {
-		self.frame_time_smooth
-	}
+	pub fn frame_time(&self) -> f32 { self.frame_time }
 
-	pub fn frames_per_second(&self) -> f32 {
-		1.0 / (self.frame_time / 1000f32)
-	}
-	pub fn frames_per_second_smooth(&self) -> f32 {
-		1.0 / (self.frame_time_smooth / 1000f32)
-	}
+	pub fn frame_time_smooth(&self) -> f32 { self.frame_time_smooth }
+
+	pub fn frames_per_second(&self) -> f32 { 1.0 / (self.frame_time / 1000f32) }
+
+	pub fn frames_per_second_smooth(&self) -> f32 { 1.0 / (self.frame_time_smooth / 1000f32) }
 }

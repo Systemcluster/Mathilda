@@ -82,8 +82,6 @@
 	clamp,
 	coerce_unsized,
 	const_cstr_unchecked,
-	const_saturating_int_methods,
-	const_type_id,
 	error_iter,
 	error_type_id,
 	exact_size_is_empty,
@@ -114,19 +112,6 @@
 	wrapping_next_power_of_two
 )]
 
-mod renderer;
-mod resources;
-mod states;
-mod time;
-
-use log::*;
-use time::*;
-use winit::{
-	event::{DeviceEvent, ElementState, Event, MouseScrollDelta, VirtualKeyCode, WindowEvent},
-	event_loop::{ControlFlow, EventLoop},
-	window::{Icon, Window, WindowBuilder},
-};
-
 
 use mimalloc::MiMalloc;
 
@@ -134,107 +119,23 @@ use mimalloc::MiMalloc;
 static GLOBAL: MiMalloc = MiMalloc;
 
 
-fn create_version_string() -> String {
-	use std::env::consts::{ARCH, OS};
-	#[cfg(debug_assertions)]
-	const BUILD_TYPE: &str = "debug";
-	#[cfg(not(debug_assertions))]
-	const BUILD_TYPE: &str = "release";
-	format!(
-		"{} {} ({} build, {} [{}])",
-		env!("CARGO_PKG_NAME"),
-		env!("CARGO_PKG_VERSION"),
-		BUILD_TYPE,
-		OS,
-		ARCH
-	)
-}
+mod pipeline;
+mod resources;
+mod states;
+mod time;
+mod universe;
+mod util;
 
-fn create_panic_hook(
-	adapter_info: Option<wgpu::AdapterInfo>,
-) -> Box<dyn Fn(&std::panic::PanicInfo<'_>) + 'static + Sync + Send> {
-	std::boxed::Box::new(move |panic| {
-		use color_backtrace::{
-			termcolor::{ColorChoice, NoColor, StandardStream},
-			BacktracePrinter,
-		};
-		use std::io::prelude::*;
-		BacktracePrinter::new()
-			.print_panic_info(&panic, &mut StandardStream::stderr(ColorChoice::Always))
-			.unwrap();
-		if let Ok(mut file) = std::fs::File::create(format!(
-			"crash-{}.txt",
-			chrono::Local::now().format("%Y-%m-%d-%H%M%S%z")
-		)) {
-			let _ = writeln!(file, "Version information:");
-			let _ = writeln!(file, "\t{}", create_version_string());
-			let _ = writeln!(file);
-			let _ = writeln!(file, "System information:");
-			let os = os_info::get();
-			let _ = writeln!(
-				file,
-				"\tOS: {} ({} {})",
-				os.os_type(),
-				os.version(),
-				os.bitness()
-			);
-			let cpu = raw_cpuid::CpuId::new();
-			if let Some(extended_function_info) = cpu.get_extended_function_info() {
-				if let Some(brand_string) = extended_function_info.processor_brand_string() {
-					let _ = write!(file, "\tCPU: {}", brand_string.trim());
-				}
-			}
-			if let Ok(cpuspeed) = sys_info::cpu_speed() {
-				let _ = write!(file, " ({} MHz)", cpuspeed);
-			}
-			let _ = writeln!(file);
-			if let Ok(mem) = sys_info::mem_info() {
-				let _ = writeln!(file, "\tRAM: {} KB ({} KB free)", mem.total, mem.free);
-			}
-			if let Some(adapter_info) = &adapter_info {
-				let _ = writeln!(file, "\tGPU: {:?}", adapter_info);
-			}
-			let _ = writeln!(file);
-			BacktracePrinter::new()
-				.print_panic_info(&panic, &mut NoColor::new(file))
-				.unwrap();
-		}
-	})
-}
 
-fn create_window(
-	window_title: &str, eventloop: &winit::event_loop::EventLoop<()>,
-) -> winit::window::Window {
-	let icon = resources::get_image("evil2.png").unwrap();
-	let icon = icon.as_rgba8().unwrap();
-	let builder = WindowBuilder::new()
-		.with_resizable(true)
-		.with_inner_size(winit::dpi::LogicalSize::new(1024, 1024))
-		.with_min_inner_size(winit::dpi::LogicalSize::new(1024, 1024))
-		.with_title(window_title)
-		.with_window_icon(Some(
-			Icon::from_rgba(icon.to_vec(), icon.width(), icon.height()).unwrap(),
-		))
-		.with_transparent(false)
-		.with_decorations(true);
-	builder.build(&eventloop).unwrap()
-}
+use log::*;
+use time::*;
+use winit::{
+	event::{DeviceEvent, ElementState, Event, MouseScrollDelta, VirtualKeyCode, WindowEvent},
+	event_loop::{ControlFlow, EventLoop},
+	window::Window,
+};
 
-fn create_swap_chain_descriptor(
-	window: &winit::window::Window,
-) -> Option<wgpu::SwapChainDescriptor> {
-	let window_size = window.inner_size();
-	if window_size.width == 0 || window_size.height == 0 {
-		return None;
-	}
-	Some(wgpu::SwapChainDescriptor {
-		usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-		format: wgpu::TextureFormat::Bgra8Unorm,
-		width: window_size.width,
-		height: window_size.height,
-		present_mode: wgpu::PresentMode::Mailbox,
-	})
-}
+use crate::util::*;
 
 fn main() {
 	std::panic::set_hook(create_panic_hook(None));
@@ -242,8 +143,8 @@ fn main() {
 	pretty_env_logger::formatted_timed_builder()
 		.filter_level(
 			std::env::var("LOG_LEVEL")
-				.map(|v| str::parse(&v))
-				.unwrap_or(Ok(log::LevelFilter::Warn))
+				.ok()
+				.and_then(|v| str::parse(&v).ok())
 				.unwrap_or(log::LevelFilter::Warn),
 		)
 		.filter_module("mathilda", log::LevelFilter::Trace)
@@ -254,14 +155,7 @@ fn main() {
 	let eventloop = EventLoop::new();
 	let window = create_window(&env!("CARGO_PKG_NAME"), &eventloop);
 
-	// for _ in 1..sys_info::cpu_num().unwrap() {
-	// 	std::thread::spawn(|| smol::run(futures::future::pending::<()>()));
-	// }
-	// smol::block_on(async {
-	// 	smol::Task::spawn(start(eventloop, window)).await;
-	// });
-	// smol::run(start())
-	futures::executor::block_on(start(eventloop, window));
+	async_std::task::block_on(start(eventloop, window));
 }
 
 async fn start(eventloop: EventLoop<()>, window: Window) {
@@ -277,49 +171,31 @@ async fn start(eventloop: EventLoop<()>, window: Window) {
 
 	std::panic::set_hook(create_panic_hook(Some(adapter.get_info())));
 
-	let (device, queue) = adapter
-		.request_device(
-			&wgpu::DeviceDescriptor {
-				limits: wgpu::Limits::default(),
-				features: wgpu::Features::default(),
-				shader_validation: true,
-			},
-			None,
-		)
-		.await
-		.unwrap();
-
-	let mut swap_chain = None;
-	let mut texture_format = wgpu::TextureFormat::Bgra8Unorm;
-
 	window.set_visible(true);
 
-	let mut renderer = None;
+
+	info!("setting up world");
+
+	let mut universe = universe::Universe::new(&adapter).await.unwrap();
+	universe.create_swapchain(&window, &surface);
+	universe.push_state::<universe::InitialState>();
+
+
+	info!("entering event loop");
 
 	let mut window_has_focus = true;
-	let mut window_mouseover = true;
-	let mut recreate_pipeline = true;
-	let mut recreate_swapchain = true;
-	let mut force_regenerate = false;
-	let mut paused = true;
-	let mut timer = FrameAccumTimer::new(20, 120f32);
-
-	let mut args = renderer::RendererArgs {
-		time: 0f32,
-		mode: 0i32,
-		subregion: [0f32, 0f32, 1f32, 1f32],
-		offset: [0f32, 0f32],
-		level: 0.52f32,
-	};
-	let mut args_prev = args;
-
-	info!("entering render loop");
+	let mut window_mouseover = false;
 
 	eventloop.run(move |event, _, control_flow| {
 		*control_flow = ControlFlow::Poll;
 		match event {
-			Event::RedrawRequested(_) => {
-				timer.update(|timer| {
+			Event::MainEventsCleared => {
+				if *control_flow == ControlFlow::Exit {
+					return;
+				}
+				universe.update();
+				universe.render();
+				universe.get_timer().trigger(|timer: &FrameAccumTimer| {
 					window.set_title(
 						format!(
 							"{} ({:.1} fps / {:.3} ms)",
@@ -329,56 +205,9 @@ async fn start(eventloop: EventLoop<()>, window: Window) {
 						)
 						.as_str(),
 					)
-				});
-				if !paused {
-					args.time += timer.frame_time();
-				}
-
-				if recreate_swapchain {
-					if let Some(swap_chain_descriptor) = &create_swap_chain_descriptor(&window) {
-						info!("recreating swapchain");
-						texture_format = swap_chain_descriptor.format;
-						swap_chain =
-							Some(device.create_swap_chain(&surface, &swap_chain_descriptor));
-						recreate_swapchain = false;
-					} else {
-						swap_chain = None;
-					}
-				}
-				if recreate_pipeline {
-					match renderer::Renderer::init(&device, texture_format) {
-						Err(ref error) => {
-							error!("Error initializing renderer:\n{:?}", error);
-						},
-						Ok(new_renderer) => {
-							info!("renderer ok!");
-							renderer = Some(new_renderer)
-						},
-					}
-					recreate_pipeline = false;
-					force_regenerate = true;
-				}
-				if let Some(swap_chain) = &mut swap_chain {
-					if let Some(renderer) = &mut renderer {
-						let frame = swap_chain.get_current_frame();
-						if args != args_prev || force_regenerate {
-							args_prev = args;
-							let command = renderer.regenerate(&device, args);
-							queue.submit(Some(command));
-							force_regenerate = false;
-						}
-						match frame {
-							Ok(frame) => {
-								let command = renderer.render(&device, &frame.output.view);
-								queue.submit(Some(command));
-							},
-							Err(error) => {
-								error!("Couldn't get next texture:\n{:?}", error);
-							},
-						};
-					}
-				}
+				})
 			},
+			Event::RedrawRequested(_) => {},
 			Event::WindowEvent {
 				event: WindowEvent::CloseRequested,
 				window_id,
@@ -390,25 +219,20 @@ async fn start(eventloop: EventLoop<()>, window: Window) {
 				window_id,
 			} if window_id == window.id() => {
 				info!("resized");
-				recreate_swapchain = true;
+				universe.create_swapchain(&window, &surface);
 			},
 			Event::WindowEvent {
 				event: WindowEvent::ScaleFactorChanged { .. },
 				window_id,
 			} if window_id == window.id() => {
 				info!("scale changed");
-				recreate_swapchain = true;
+				universe.create_swapchain(&window, &surface);
 			},
 			Event::WindowEvent {
 				event: WindowEvent::Focused(focused),
 				window_id,
 			} if window_id == window.id() => {
 				window_has_focus = focused;
-			},
-			Event::MainEventsCleared => {
-				if *control_flow != ControlFlow::Exit {
-					window.request_redraw();
-				}
 			},
 			Event::WindowEvent {
 				event: WindowEvent::CursorEntered { .. },
@@ -422,106 +246,9 @@ async fn start(eventloop: EventLoop<()>, window: Window) {
 			} if window_id == window.id() => {
 				window_mouseover = false;
 			},
-			Event::DeviceEvent {
-				event:
-					DeviceEvent::MouseWheel {
-						delta: MouseScrollDelta::LineDelta(_, y),
-					},
-				..
-			} if window_mouseover => {
-				args.time += y * 50f32;
+			event => {
+				universe.event(event);
 			},
-			Event::DeviceEvent {
-				event: DeviceEvent::Motion { .. },
-				..
-			} => {},
-			Event::DeviceEvent {
-				event: DeviceEvent::MouseMotion { .. },
-				..
-			} => {},
-			Event::DeviceEvent {
-				event: DeviceEvent::Key(input),
-				..
-			} if window_has_focus && input.state == ElementState::Pressed => {
-				use VirtualKeyCode::*;
-				match input.virtual_keycode {
-					Some(F5) => {
-						recreate_pipeline = true;
-					},
-					Some(Space) => {
-						paused = !paused;
-					},
-					Some(Key0) => {
-						args.mode = 0;
-					},
-					Some(Key1) => {
-						args.mode = 1;
-					},
-					Some(Key2) => {
-						args.mode = 2;
-					},
-					Some(Key3) => {
-						args.mode = 3;
-					},
-					Some(Key4) => {
-						args.mode = 4;
-					},
-					Some(Key5) => {
-						args.mode = 5;
-					},
-					Some(Key6) => {
-						args.mode = 6;
-					},
-					Some(Key7) => {
-						args.mode = 7;
-					},
-					Some(Key8) => {
-						args.mode = 8;
-					},
-					Some(Key9) => {
-						args.mode = 9;
-					},
-					Some(PageUp) => {
-						args.subregion = [
-							args.subregion[0] - 0.025 % 1.0,
-							args.subregion[1] - 0.025 % 1.0,
-							args.subregion[2] + 0.025 % 1.0,
-							args.subregion[3] + 0.025 % 1.0,
-						];
-					},
-					Some(PageDown) => {
-						args.subregion = [
-							args.subregion[0] + 0.025 % 1.0,
-							args.subregion[1] + 0.025 % 1.0,
-							args.subregion[2] - 0.025 % 1.0,
-							args.subregion[3] - 0.025 % 1.0,
-						];
-					},
-					Some(Home) => {
-						args.level = nalgebra::clamp(args.level + 0.02, 0f32, 1f32);
-					},
-					Some(End) => {
-						args.level = nalgebra::clamp(args.level - 0.02, 0f32, 1f32);
-					},
-					Some(Delete) => {
-						args.subregion = [0f32, 0f32, 1f32, 1f32];
-					},
-					Some(Up) => {
-						args.offset[1] -= 0.01;
-					},
-					Some(Down) => {
-						args.offset[1] += 0.01;
-					},
-					Some(Left) => {
-						args.offset[0] -= 0.01;
-					},
-					Some(Right) => {
-						args.offset[0] += 0.01;
-					},
-					_ => (),
-				}
-			},
-			_ => (),
 		}
 	});
 }

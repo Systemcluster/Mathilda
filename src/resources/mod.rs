@@ -1,5 +1,12 @@
 pub mod shaders;
 
+// TODO: rewrite with baking support
+// TODO: rewrite whole hot reload logic to support both baked and unbaked loading
+pub fn get_file(file: &str) -> std::io::Result<Vec<u8>> {
+	std::fs::read(std::env::current_dir().unwrap().join("data").join(file))
+}
+
+
 #[cfg(feature = "hotreload")]
 pub fn get_image(file: &str) -> image::ImageResult<image::DynamicImage> {
 	let path = std::env::current_dir()
