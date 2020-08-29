@@ -55,6 +55,8 @@ impl FrameAccumTimer {
 
 	pub fn frame_time(&self) -> f32 { self.frame_time }
 
+	pub fn delta(&self) -> f32 { self.frame_time / 1000f32 }
+
 	pub fn frame_time_smooth(&self) -> f32 { self.frame_time_smooth }
 
 	pub fn frames_per_second(&self) -> f32 { 1.0 / (self.frame_time / 1000f32) }

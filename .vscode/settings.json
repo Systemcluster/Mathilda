@@ -1,0 +1,8 @@
+{
+	"rust-analyzer.checkOnSave.overrideCommand": [
+		"cargo",
+		"clippy",
+		"--message-format=json",
+		"--features=hotreload,shaderinfo"
+	],
+}

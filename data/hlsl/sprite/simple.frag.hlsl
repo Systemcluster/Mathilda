@@ -1,9 +1,10 @@
 #pragma shader_stage(fragment)
 
-cbuffer GlobalBuffer : register(b0) {
-	float2 position;
+cbuffer Element : register(b0) {
+	float3 position;
 	float2 size;
 	float4 color;
+	float4 rotation;
 };
 
 struct Input {
