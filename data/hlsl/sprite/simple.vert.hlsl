@@ -5,6 +5,8 @@ cbuffer Element : register(b0) {
 	float2 size;
 	float4 color;
 	float3 rotation;
+	float2 texturecoords;
+	float2 texturesize;
 };
 
 cbuffer Camera : register(b1) {
@@ -17,7 +19,7 @@ struct Input {
 
 struct Output {
 	float4 position : SV_POSITION;
-	float4 uv : TEXCOORD0;
+	float2 uv : TEXCOORD0;
 };
 
 float2 rotate_point(float pointX, float pointY, float originX, float originY, float angle) {
@@ -29,18 +31,28 @@ float2 rotate_point(float pointX, float pointY, float originX, float originY, fl
 
 Output main(Input input) {
 	Output o;
+
+	float2 utl = float2(texturecoords.x, texturecoords.y);
+	float2 ubl = float2(texturecoords.x, texturecoords.y + texturesize.y);
+	float2 ubr = float2(texturecoords.x + texturesize.x, texturecoords.y + texturesize.y);
+	float2 utr = float2(texturecoords.x + texturesize.x, texturecoords.y);
+
+	float2 points[6] = {
+		utl,
+		ubl,
+		ubr,
+		ubr,
+		utr,
+		utl
+	};
+
+	float2 offset = float2(position.x, position.y);
 	float a = rotation[0];
 
-	// float r = float2x2(cos(a), -sin(a), sin(a), cos(a));
-	// float3 tl = float3(float2(position.x-size.x, position.y+size.y) * r, position.z);
-	// float3 bl = float3(float2(position.x-size.x, position.y-size.y) * r, position.z);
-	// float3 br = float3(float2(position.x+size.x, position.y-size.y) * r, position.z);
-	// float3 tr = float3(float2(position.x+size.x, position.y+size.y) * r, position.z);
-
-	float3 tl = float3(rotate_point(-size.x, +size.y, 0, 0, a) + float2(position.x, position.y), position.z);
-	float3 bl = float3(rotate_point(-size.x, -size.y, 0, 0, a) + float2(position.x, position.y), position.z);
-	float3 br = float3(rotate_point(+size.x, -size.y, 0, 0, a) + float2(position.x, position.y), position.z);
-	float3 tr = float3(rotate_point(+size.x, +size.y, 0, 0, a) + float2(position.x, position.y), position.z);
+	float3 tl = float3(rotate_point(-size.x, +size.y, 0, 0, a) + offset, position.z);
+	float3 bl = float3(rotate_point(-size.x, -size.y, 0, 0, a) + offset, position.z);
+	float3 br = float3(rotate_point(+size.x, -size.y, 0, 0, a) + offset, position.z);
+	float3 tr = float3(rotate_point(+size.x, +size.y, 0, 0, a) + offset, position.z);
 
 	float3 positions[6] = {
 		tl,
@@ -50,7 +62,8 @@ Output main(Input input) {
 		tr,
 		tl,
 	};
+
 	o.position = float4(positions[input.vertexID], 1.0) * projection;
-	o.uv = float4(positions[input.vertexID], 1.0);
+	o.uv = points[input.vertexID].xy;
 	return o;
 }

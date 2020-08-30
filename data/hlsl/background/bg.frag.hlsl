@@ -1,16 +1,12 @@
 #pragma shader_stage(fragment)
 
-cbuffer Element : register(b0) {
+cbuffer Element : register(b2) {
 	float3 position;
-	float2 size;
-	float4 color;
-	float4 rotation;
-	float2 texturecoords;
-	float2 texturesize;
+	float aspect;
 };
 
-Texture2D map : register(t2);
-SamplerState sam : register(s3);
+Texture2D map : register(t0);
+SamplerState sam : register(s1);
 
 struct Input {
 	float4 fragCoord : SV_POSITION;
@@ -26,6 +22,6 @@ Output main(Input input) {
 	float width;
 	float height;
 	map.GetDimensions(width, height);
-	o.color = map.Sample(sam, float2(input.uv.x / width, input.uv.y / height));
+	o.color = map.Sample(sam, float2(input.uv * 0.5 + 0.5));
 	return o;
 }

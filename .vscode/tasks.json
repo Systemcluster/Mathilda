@@ -61,7 +61,7 @@
 				"env": {
 					// "RUST_BACKTRACE": "full",
 					// "LOG_LEVEL": "warn",
-					// "RUSTFLAGS": "-Zunstable-options -Zthinlto -Zstrip-debuginfo-if-disabled=yes -Ctarget-cpu=haswell -Ctarget-feature=+crt-static,+aes"
+					"RUSTFLAGS": "-Ctarget-feature=+crt-static,+64bit,+bmi,+bmi2,+fxsr,+f16c,+mmx,+sse,+sse2,+sse3,+ssse3,+sse4.1,+sse4.2,+fma,+popcnt,+lzcnt,+pclmul,+cmov,+cx8,+cx16,+movbe,+avx,+aes,+xsave,+xsaveopt,+rdrnd -Zmir-opt-level=1"
 				}
 			}
 		},

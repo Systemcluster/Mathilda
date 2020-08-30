@@ -22,20 +22,56 @@ fn compile_spirv() {
 	let options =
 		shaders::get_compile_options(shader_path).expect("couldn't create shader options");
 
-	for file in std::fs::read_dir(input).unwrap() {
-		let file = file.unwrap();
-		if file.file_type().unwrap().is_file() {
-			let path = file.path();
+	for entry in jwalk::WalkDir::new(&input)
+		.into_iter()
+		.filter_map(|e| e.ok())
+	{
+		if entry
+			.file_name()
+			.to_str()
+			.unwrap()
+			.chars()
+			.filter(|&c| c == '.')
+			.count() < 2
+		{
+			continue;
+		}
+		if entry.file_type().is_file() {
+			let path: std::path::PathBuf = entry.path();
 			let artifact = shaders::compile_shader(&path, &mut compiler, &options)
 				.expect(&["compiling shader failed: ", &path.to_str().unwrap()].concat());
+			std::fs::create_dir_all(
+				output.join(
+					path.parent()
+						.unwrap()
+						.strip_prefix(&input)
+						.unwrap()
+						.to_str()
+						.unwrap(),
+				),
+			)
+			.unwrap();
 			std::fs::write(
-				output.join([file.file_name().to_str().unwrap(), ".spirv"].concat()),
+				output.join(
+					[
+						path.parent()
+							.unwrap()
+							.strip_prefix(&input)
+							.unwrap()
+							.to_str()
+							.unwrap(),
+						"/",
+						entry.file_name().to_str().unwrap(),
+						".spirv",
+					]
+					.concat(),
+				),
 				artifact.as_binary_u8(),
 			)
 			.expect(
 				&[
 					"couldn'write shader ",
-					file.file_name().to_str().unwrap(),
+					entry.file_name().to_str().unwrap(),
 					".spirv",
 				]
 				.concat(),

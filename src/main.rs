@@ -130,7 +130,7 @@ mod util;
 use log::*;
 use time::*;
 use winit::{
-	event::{DeviceEvent, ElementState, Event, MouseScrollDelta, VirtualKeyCode, WindowEvent},
+	event::{Event, WindowEvent},
 	event_loop::{ControlFlow, EventLoop},
 	window::Window,
 };
@@ -195,13 +195,15 @@ async fn start(eventloop: EventLoop<()>, window: Window) {
 				}
 				universe.update();
 				universe.render();
+				let status = universe.get_status();
 				universe.get_timer().trigger(|timer: &FrameAccumTimer| {
 					window.set_title(
 						format!(
-							"{} ({:.1} fps / {:.3} ms)",
+							"{} ({:.1} fps / {:.3} ms) {}",
 							env!("CARGO_PKG_NAME"),
 							timer.frames_per_second_smooth(),
-							timer.frame_time_smooth()
+							timer.frame_time_smooth(),
+							status
 						)
 						.as_str(),
 					)
