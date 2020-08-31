@@ -1059,9 +1059,9 @@ dependencies = [
 
 [[package]]
 name = "image"
-version = "0.23.8"
+version = "0.23.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "543904170510c1b5fb65140485d84de4a57fddb2ed685481e9020ce3d2c9f64c"
+checksum = "974e194911d1f7efe3cd8a8f9db3b767e43536327e899e8bc9a12ef5711b74d2"
 dependencies = [
  "bytemuck",
  "byteorder",
@@ -2629,7 +2629,7 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 [[package]]
 name = "winit"
 version = "0.22.2"
-source = "git+https://github.com/rust-windowing/winit?branch=master#a2db4c0a320aafc10d240c432fe5ef4e4d84629d"
+source = "git+https://github.com/rust-windowing/winit?branch=master#658a9a4ea8b50c5279042aa2a23f27fc583bb878"
 dependencies = [
  "bitflags",
  "cocoa",

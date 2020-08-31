@@ -119,9 +119,11 @@ use mimalloc::MiMalloc;
 static GLOBAL: MiMalloc = MiMalloc;
 
 
-mod pipeline;
+mod components;
+mod graphics;
 mod resources;
 mod states;
+mod systems;
 mod time;
 mod universe;
 mod util;
@@ -178,7 +180,7 @@ async fn start(eventloop: EventLoop<()>, window: Window) {
 
 	let mut universe = universe::Universe::new(&adapter).await.unwrap();
 	universe.create_swapchain(&window, &surface);
-	universe.push_state::<universe::InitialState>();
+	universe.push_state::<states::SpaceShooterState>();
 
 
 	info!("entering event loop");
