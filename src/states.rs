@@ -74,7 +74,7 @@ impl State for SpaceShooterState {
 				entities.add_entity(
 					(&mut spawners,),
 					(Spawner {
-						spawnrate: 2.0,
+						spawnrate: 0.2,
 						last: 0.0,
 						player,
 					},),

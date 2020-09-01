@@ -6,9 +6,11 @@ use zerocopy::{AsBytes, FromBytes};
 
 const BUFFER_SIZE: u64 = 16384;
 
-pub fn get_aligned(size: u64, alignment: u64) -> u64 { alignment * (size / alignment) + alignment }
+pub fn get_aligned<T: Sized>(alignment: u64) -> u64 {
+	alignment * (std::mem::size_of::<T>() as u64 / alignment) + alignment
+}
 pub fn get_buffer_size<T: Sized>() -> u64 {
-	get_aligned(std::mem::size_of::<T>() as u64, wgpu::BIND_BUFFER_ALIGNMENT) * BUFFER_SIZE
+	get_aligned::<T>(wgpu::BIND_BUFFER_ALIGNMENT) * BUFFER_SIZE
 }
 
 
@@ -61,7 +63,7 @@ pub struct Renderer {
 }
 
 impl Renderer {
-	pub async fn new(device: wgpu::Device, queue: wgpu::Queue) -> Result<Self, Error> {
+	pub fn new(device: wgpu::Device, queue: wgpu::Queue) -> Result<Self, Error> {
 		// shaders
 		//
 		//

@@ -1,17 +1,19 @@
 #![allow(clippy::too_many_arguments)]
 
-
+use flamer::flame;
 use shipyard::{
-	AllStoragesViewMut, EntitiesViewMut, Get, IntoIter, Shiperator, UniqueViewMut, View, ViewMut,
+	AllStoragesViewMut, EntitiesViewMut, Get, IntoIter, Shiperator, UniqueView, UniqueViewMut,
+	View, ViewMut,
 };
 use winit::event::VirtualKeyCode;
 use zerocopy::AsBytes;
 
-
 use crate::{
 	components::*,
-	graphics::{get_buffer_size, BackgroundArgs, CameraArgs, Renderer, SpriteArgs},
-	universe::Universe,
+	graphics::{get_aligned, get_buffer_size, BackgroundArgs, CameraArgs, Renderer, SpriteArgs},
+	input::Input,
+	session::Session,
+	time::Timer,
 };
 use rand::Rng;
 
@@ -20,97 +22,113 @@ const ACCELERATION: f32 = 20.0;
 const MAXSPEED: f32 = 16.0;
 
 
-pub fn input(
-	universe: &Universe, mut entities: EntitiesViewMut, mut players: ViewMut<Player>,
-	mut weapons: ViewMut<Weapon>, mut transforms: ViewMut<Transform>, mut sprites: ViewMut<Sprite>,
-	mut selfdamages: ViewMut<SelfDamage>, mut lifes: ViewMut<Life>,
-	mut contactdamages: ViewMut<ContactDamage>, mut physics: ViewMut<Physics>,
-) {
+#[flame]
+pub fn input(all_storages: AllStoragesViewMut) {
 	let mut adds = Vec::new();
-	for (_player, physic, transform, weapon) in
-		(&mut players, &mut physics, &mut transforms, &mut weapons).iter()
-	{
-		use VirtualKeyCode::*;
-		for key in &universe.keys_down {
-			match key {
-				Up => {
-					physic.acceleration +=
-						glam::Vec3::new(0.0, ACCELERATION * 1.5, 0.0) * universe.timer.delta();
-				},
-				Down => {
-					physic.acceleration +=
-						glam::Vec3::new(0.0, -ACCELERATION * 1.5, 0.0) * universe.timer.delta();
-				},
-				Right => {
-					physic.acceleration +=
-						glam::Vec3::new(ACCELERATION * 1.5, 0.0, 0.0) * universe.timer.delta();
-				},
-				Left => {
-					physic.acceleration +=
-						glam::Vec3::new(-ACCELERATION * 1.5, 0.0, 0.0) * universe.timer.delta();
-				},
-				Space => {
-					if weapon.last + weapon.repeat < universe.lifetime {
-						adds.push((
-							Transform {
-								position: transform.position
-									+ glam::Vec3::new(
-										-transform.rotation.x().sin(),
-										transform.rotation.x().cos(),
-										0.0,
-									) * 0.8,
-								scale: [0.2, 0.2],
-								rotation: transform.rotation,
+	all_storages.run(
+		|mut players: ViewMut<Player>,
+		 mut weapons: ViewMut<Weapon>,
+		 mut transforms: ViewMut<Transform>,
+		 mut physics: ViewMut<Physics>,
+		 timer: UniqueView<Timer>,
+		 input: UniqueView<Input>| {
+			(&mut players, &mut physics, &mut transforms, &mut weapons)
+				.iter()
+				.for_each(|(_player, physic, transform, weapon)| {
+					use VirtualKeyCode::*;
+					for key in &input.keys_down {
+						match key {
+							Up => {
+								physic.acceleration +=
+									glam::Vec3::new(0.0, ACCELERATION * 1.5, 0.0) * timer.delta();
 							},
-							Physics {
-								acceleration: glam::Vec3::new(
-									-transform.rotation.x().sin(),
-									transform.rotation.x().cos(),
-									0.0,
-								) * 10.0 + physic.acceleration,
-								deceleration: 0.05,
+							Down => {
+								physic.acceleration +=
+									glam::Vec3::new(0.0, -ACCELERATION * 1.5, 0.0) * timer.delta();
 							},
-							Sprite {
-								color: [0.1, 0.4, 1.0, 0.0],
-								sprite: [1.0, 1.0],
+							Right => {
+								physic.acceleration +=
+									glam::Vec3::new(ACCELERATION * 1.5, 0.0, 0.0) * timer.delta();
 							},
-							SelfDamage { damage: 1.0 },
-							Life { health: 3.0 },
-							ContactDamage {
-								damage: 10.0,
-								once: true,
+							Left => {
+								physic.acceleration +=
+									glam::Vec3::new(-ACCELERATION * 1.5, 0.0, 0.0) * timer.delta();
 							},
-						));
-						weapon.last = universe.lifetime;
+							Space => {
+								if weapon.last + weapon.repeat < timer.lifetime() {
+									adds.push((
+										Transform {
+											position: transform.position
+												+ glam::Vec3::new(
+													-transform.rotation.x().sin(),
+													transform.rotation.x().cos(),
+													0.0,
+												) * 0.8,
+											scale: [0.2, 0.2],
+											rotation: transform.rotation,
+										},
+										Physics {
+											acceleration: glam::Vec3::new(
+												-transform.rotation.x().sin(),
+												transform.rotation.x().cos(),
+												0.0,
+											) * 10.0 + physic.acceleration,
+											deceleration: 0.05,
+										},
+										Sprite {
+											color: [0.1, 0.4, 1.0, 0.0],
+											sprite: [1.0, 1.0],
+										},
+										SelfDamage { damage: 1.0 },
+										Life { health: 3.0 },
+										ContactDamage {
+											damage: 10.0,
+											once: true,
+										},
+									));
+									weapon.last = timer.lifetime();
+								}
+							},
+							_ => (),
+						}
 					}
-				},
-				_ => (),
+				});
+		},
+	);
+	all_storages.run(
+		|mut entities: EntitiesViewMut,
+		 mut sprites: ViewMut<Sprite>,
+		 mut selfdamages: ViewMut<SelfDamage>,
+		 mut lifes: ViewMut<Life>,
+		 mut transforms: ViewMut<Transform>,
+		 mut physics: ViewMut<Physics>,
+		 mut contactdamages: ViewMut<ContactDamage>| {
+			for add in adds {
+				entities.add_entity(
+					(
+						&mut transforms,
+						&mut physics,
+						&mut sprites,
+						&mut selfdamages,
+						&mut lifes,
+						&mut contactdamages,
+					),
+					add,
+				);
 			}
-		}
-	}
-	for add in adds {
-		entities.add_entity(
-			(
-				&mut transforms,
-				&mut physics,
-				&mut sprites,
-				&mut selfdamages,
-				&mut lifes,
-				&mut contactdamages,
-			),
-			add,
-		);
-	}
+		},
+	);
 }
 
+#[flame]
 pub fn spawn(
-	universe: &Universe, mut entities: EntitiesViewMut, mut enemies: ViewMut<Enemy>,
-	mut transforms: ViewMut<Transform>, mut sprites: ViewMut<Sprite>, mut lifes: ViewMut<Life>,
-	mut physics: ViewMut<Physics>, mut contactdamages: ViewMut<ContactDamage>,
-	mut spawners: ViewMut<Spawner>,
+	mut entities: EntitiesViewMut, mut enemies: ViewMut<Enemy>, mut transforms: ViewMut<Transform>,
+	mut sprites: ViewMut<Sprite>, mut lifes: ViewMut<Life>, mut physics: ViewMut<Physics>,
+	mut contactdamages: ViewMut<ContactDamage>, mut spawners: ViewMut<Spawner>,
+	timer: UniqueView<Timer>,
 ) {
-	for spawner in (&mut spawners).iter() {
-		if spawner.last < universe.lifetime {
+	(&mut spawners).iter().for_each(|spawner| {
+		if spawner.last < timer.lifetime() {
 			let ppos = (&transforms)
 				.get(spawner.player)
 				.map(|t| t.position)
@@ -151,39 +169,52 @@ pub fn spawn(
 					},
 				),
 			);
-			spawner.last = universe.lifetime + rand::thread_rng().gen_range(0.5, 2.0);
+			spawner.last = timer.lifetime()
+				+ rand::thread_rng().gen_range(spawner.spawnrate / 2.0, spawner.spawnrate * 2.0);
 		}
-	}
+	});
 }
 
+#[flame]
 pub fn contactdamage(
-	universe: &Universe, transforms: View<Transform>, contactdamages: View<ContactDamage>,
-	enemies: View<Enemy>, mut lifes: ViewMut<Life>,
+	transforms: View<Transform>, contactdamages: View<ContactDamage>, enemies: View<Enemy>,
+	mut lifes: ViewMut<Life>,
 ) {
 	let mut deads = Vec::new();
-	for (id, (transform, contactdamage)) in (&transforms, &contactdamages).iter().with_id() {
-		for (t_id, (t_transform, t_life)) in (&transforms, &mut lifes).iter().with_id() {
-			if id != t_id && ((&enemies).get(id).is_err() || (&enemies).get(t_id).is_err()) {
-				let dx = transform.position.x() - t_transform.position.x();
-				let dy = transform.position.y() - t_transform.position.y();
-				let di = f32::sqrt(dx * dx + dy * dy);
-				if di < transform.scale[0] + t_transform.scale[0] {
-					t_life.health -= contactdamage.damage;
-					if contactdamage.once {
-						deads.push(id);
+	(&transforms, &contactdamages)
+		.iter()
+		.with_id()
+		.for_each(|(id, (transform, contactdamage))| {
+			(&transforms, &mut lifes)
+				.iter()
+				.with_id()
+				.for_each(|(t_id, (t_transform, t_life))| {
+					if id != t_id && ((&enemies).get(id).is_err() || (&enemies).get(t_id).is_err())
+					{
+						let dx = transform.position.x() - t_transform.position.x();
+						let dy = transform.position.y() - t_transform.position.y();
+						let di = f32::sqrt(dx * dx + dy * dy);
+						if di < transform.scale[0] + t_transform.scale[0] {
+							t_life.health -= contactdamage.damage;
+							if contactdamage.once {
+								deads.push(id);
+							}
+						}
 					}
-				}
-			}
-		}
-	}
+				});
+		});
 	for dead in deads {
-		(&mut lifes).get(dead).map(|life| life.health = -1.0);
+		(&mut lifes)
+			.get(dead)
+			.map(|life| life.health = -1.0)
+			.unwrap();
 	}
 }
 
+#[flame]
 pub fn enemyai(
-	universe: &Universe, transforms: View<Transform>, mut physics: ViewMut<Physics>,
-	enemies: View<Enemy>, players: View<Player>,
+	transforms: View<Transform>, mut physics: ViewMut<Physics>, enemies: View<Enemy>,
+	players: View<Player>, timer: UniqueView<Timer>,
 ) {
 	for (transform, physic, _) in (&transforms, &mut physics, &enemies).iter() {
 		for (_, p_transform) in (&players, &transforms).iter() {
@@ -193,7 +224,7 @@ pub fn enemyai(
 					p_transform.position.y() - transform.position.y(),
 					0.0,
 				) * ACCELERATION / 10.0
-					* universe.timer.delta();
+					* timer.delta();
 			physic.acceleration = glam::Vec3::new(
 				accel.x().clamp(-MAXSPEED, MAXSPEED),
 				accel.y().clamp(-MAXSPEED, MAXSPEED),
@@ -203,15 +234,19 @@ pub fn enemyai(
 	}
 }
 
+#[flame]
 pub fn selfdamage(
-	universe: &Universe, mut lifes: ViewMut<Life>, mut selfdamages: ViewMut<SelfDamage>,
+	mut lifes: ViewMut<Life>, mut selfdamages: ViewMut<SelfDamage>, timer: UniqueView<Timer>,
 ) {
-	for (life, selfdamage) in (&mut lifes, &mut selfdamages).iter() {
-		life.health -= selfdamage.damage * universe.timer.delta();
-	}
+	(&mut lifes, &mut selfdamages)
+		.iter()
+		.for_each(|(life, selfdamage)| {
+			life.health -= selfdamage.damage * timer.delta();
+		});
 }
 
-pub fn death(_: &Universe, mut entities: AllStoragesViewMut) -> u32 {
+#[flame]
+pub fn death(mut entities: AllStoragesViewMut) -> u32 {
 	let mut score_mod = 0;
 	let mut delete_entities = Vec::new();
 	entities.run(|lifes: View<Life>| {
@@ -232,33 +267,33 @@ pub fn death(_: &Universe, mut entities: AllStoragesViewMut) -> u32 {
 	score_mod
 }
 
+#[flame]
 pub fn camera(
-	universe: &Universe, transforms: View<Transform>, mut cameras: ViewMut<Camera>,
-	camerafollow: View<CameraFollow>,
+	transforms: View<Transform>, mut cameras: ViewMut<Camera>, camerafollow: View<CameraFollow>,
+	timer: UniqueView<Timer>,
 ) {
 	(&mut cameras, &camerafollow)
 		.iter()
 		.for_each(|(camera, camerafollow)| {
-			(&transforms).get(camerafollow.entity).map(|transform| {
+			if let Ok(transform) = (&transforms).get(camerafollow.entity) {
 				let pos = &transform.position;
 				let target = (pos.x(), pos.y(), 100.0).into();
 				let eye = (pos.x(), pos.y(), 0.0).into();
 				camera.target = target;
-				camera.eye = camera.eye.lerp(
-					eye,
-					(camera.eye - eye).length() / 5.0 * universe.timer.delta(),
-				);
-			});
+				camera.eye = camera
+					.eye
+					.lerp(eye, (camera.eye - eye).length() / 5.0 * timer.delta());
+			}
 		});
 }
 
+#[flame]
 pub fn physics(
-	universe: &Universe, mut transforms: ViewMut<Transform>, mut physics: ViewMut<Physics>,
+	mut transforms: ViewMut<Transform>, mut physics: ViewMut<Physics>, timer: UniqueView<Timer>,
 ) {
 	for (transform, physics) in (&mut transforms, &mut physics).iter() {
-		transform.position += physics.acceleration * universe.timer.delta();
-		physics.acceleration -=
-			physics.acceleration * physics.deceleration * universe.timer.delta();
+		transform.position += physics.acceleration * timer.delta();
+		physics.acceleration -= physics.acceleration * physics.deceleration * timer.delta();
 
 		let a = if physics.acceleration.length() > 0.0 {
 			glam::vec2(physics.acceleration.x(), physics.acceleration.y()).normalize()
@@ -270,16 +305,9 @@ pub fn physics(
 }
 
 
-pub fn status(universe: &Universe, players: View<Player>) -> String {
-	if !(&players).is_empty() {
-		return format!("Score: {}", universe.score);
-	} else {
-		return format!("Score: {} - DEAD! Press R to Restart", universe.score);
-	}
-}
-
+#[flame]
 pub fn render(
-	universe: &Universe, positions: View<Transform>, sprites: View<Sprite>, cameras: View<Camera>,
+	positions: View<Transform>, sprites: View<Sprite>, cameras: View<Camera>,
 	mut renderer: UniqueViewMut<Renderer>,
 ) {
 	const SPRITE_SIZE: f32 = 16.0;
@@ -303,6 +331,7 @@ pub fn render(
 		.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
 	{
+		flame::note("starting background render", None);
 		let bg_args = BackgroundArgs {
 			position: camera.eye.into(),
 			aspect: camera.aspect,
@@ -329,6 +358,7 @@ pub fn render(
 		render_pass.set_pipeline(&renderer.bg_pipeline);
 		render_pass.set_bind_group(0, &renderer.bg_bind_group, &[]);
 		render_pass.draw(0..6, 0..1);
+		flame::note("ending background render", None);
 	}
 	renderer.queue.submit(Some(encoder.finish()));
 
@@ -357,6 +387,8 @@ pub fn render(
 			.device
 			.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 		{
+			flame::note("starting sprite render", None);
+
 			let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
 				color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
 					attachment: &view,
@@ -391,18 +423,49 @@ pub fn render(
 					offset as wgpu::BufferAddress,
 					&[args].as_bytes(),
 				);
+
 				render_pass.set_bind_group(0, &renderer.sprite_bind_group, &[
 					offset as wgpu::DynamicOffset
 				]);
 				render_pass.draw(0..6, 0..1);
-				offset += get_buffer_size::<SpriteArgs>();
+				offset += get_aligned::<SpriteArgs>(wgpu::BIND_BUFFER_ALIGNMENT);
 
 				if offset >= get_buffer_size::<SpriteArgs>() {
 					repeat = true;
 					break;
 				}
 			}
+
+			flame::note("ending sprite render", None);
 		}
 		renderer.queue.submit(Some(encoder.finish()));
+	}
+}
+
+#[flame]
+pub fn status(
+	players: View<Player>, enemies: View<Enemy>, timer: UniqueView<Timer>,
+	session: UniqueView<Session>,
+) -> String {
+	let status = format!(
+		"{} ({:.1} fps / {:.3} ms)",
+		env!("CARGO_PKG_NAME"),
+		timer.frames_per_second_smooth(),
+		timer.frame_time_smooth(),
+	);
+	if !(&players).is_empty() {
+		return format!(
+			"{} Score: {} ({} Enemies alive)",
+			status,
+			session.score,
+			enemies.len()
+		);
+	} else {
+		return format!(
+			"{} Score: {} ({} Enemies alive) - DEAD! Press R to Restart",
+			status,
+			session.score,
+			enemies.len()
+		);
 	}
 }

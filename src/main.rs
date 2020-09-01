@@ -121,7 +121,9 @@ static GLOBAL: MiMalloc = MiMalloc;
 
 mod components;
 mod graphics;
+mod input;
 mod resources;
+mod session;
 mod states;
 mod systems;
 mod time;
@@ -129,8 +131,8 @@ mod universe;
 mod util;
 
 
+use flamer::flame;
 use log::*;
-use time::*;
 use winit::{
 	event::{Event, WindowEvent},
 	event_loop::{ControlFlow, EventLoop},
@@ -160,6 +162,7 @@ fn main() {
 	async_std::task::block_on(start(eventloop, window));
 }
 
+#[flame]
 async fn start(eventloop: EventLoop<()>, window: Window) {
 	let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
 	let surface: wgpu::Surface = unsafe { instance.create_surface(&window) };
@@ -170,15 +173,24 @@ async fn start(eventloop: EventLoop<()>, window: Window) {
 		})
 		.await
 		.unwrap();
-
+	let (device, queue) = adapter
+		.request_device(
+			&wgpu::DeviceDescriptor {
+				limits: wgpu::Limits::default(),
+				features: wgpu::Features::default(),
+				shader_validation: true,
+			},
+			None,
+		)
+		.await
+		.unwrap();
 	std::panic::set_hook(create_panic_hook(Some(adapter.get_info())));
-
 	window.set_visible(true);
 
 
 	info!("setting up world");
 
-	let mut universe = universe::Universe::new(&adapter).await.unwrap();
+	let mut universe = universe::Universe::new(device, queue).unwrap();
 	universe.create_swapchain(&window, &surface);
 	universe.push_state::<states::SpaceShooterState>();
 
@@ -195,21 +207,10 @@ async fn start(eventloop: EventLoop<()>, window: Window) {
 				if *control_flow == ControlFlow::Exit {
 					return;
 				}
+				flame::clear();
 				universe.update();
 				universe.render();
-				let status = universe.get_status();
-				universe.get_timer().trigger(|timer: &FrameAccumTimer| {
-					window.set_title(
-						format!(
-							"{} ({:.1} fps / {:.3} ms) {}",
-							env!("CARGO_PKG_NAME"),
-							timer.frames_per_second_smooth(),
-							timer.frame_time_smooth(),
-							status
-						)
-						.as_str(),
-					)
-				})
+				window.set_title(universe.get_status().as_str());
 			},
 			Event::RedrawRequested(_) => {},
 			Event::WindowEvent {
@@ -217,6 +218,7 @@ async fn start(eventloop: EventLoop<()>, window: Window) {
 				window_id,
 			} if window_id == window.id() => {
 				*control_flow = ControlFlow::Exit;
+				flame::dump_json(&mut std::fs::File::create("flame.json").unwrap()).unwrap();
 			},
 			Event::WindowEvent {
 				event: WindowEvent::Resized(_),

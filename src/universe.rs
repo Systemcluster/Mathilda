@@ -1,6 +1,7 @@
 use anyhow::Error;
+use flamer::flame;
 use log::info;
-use shipyard::{AllStoragesViewMut, Get, UniqueView, UniqueViewMut, View, ViewMut, World};
+use shipyard::{system, AllStoragesViewMut, Get, UniqueView, UniqueViewMut, View, ViewMut, World};
 use std::{cell::RefCell, mem::size_of};
 use winit::{
 	event::{ElementState, Event, VirtualKeyCode},
@@ -10,51 +11,45 @@ use winit::{
 use crate::{
 	components::Camera,
 	graphics::{get_buffer_size, BackgroundArgs, CameraArgs, Renderer, SpriteArgs},
+	input::Input,
 	resources::{self, get_shader},
+	session::Session,
 	states::{EmptyState, State},
 	systems,
-	time::FrameAccumTimer,
+	time::Timer,
 	util::create_swap_chain_descriptor,
 };
 
 
 pub struct Universe {
 	pub world: World,
-	pub timer: FrameAccumTimer,
 	pub state: Box<RefCell<dyn State>>,
-
-	pub keys_down: std::collections::HashSet<winit::event::VirtualKeyCode>,
-
-	pub lifetime: f32,
-	pub score: u32,
 }
 
 
 impl Universe {
-	pub async fn new(adapter: &wgpu::Adapter) -> Result<Self, Error> {
+	pub fn new(device: wgpu::Device, queue: wgpu::Queue) -> Result<Self, Error> {
 		let universe = Self {
 			world: World::new(),
-			timer: FrameAccumTimer::new(20, 120f32),
 			state: Box::from(RefCell::new(EmptyState {})),
-			keys_down: std::collections::HashSet::new(),
-			lifetime: 0.0,
-			score: 0,
 		};
 
-		let (device, queue) = adapter
-			.request_device(
-				&wgpu::DeviceDescriptor {
-					limits: wgpu::Limits::default(),
-					features: wgpu::Features::default(),
-					shader_validation: true,
-				},
-				None,
-			)
-			.await
+		universe.world.add_unique(Renderer::new(device, queue)?);
+		universe.world.add_unique(Timer::new(20));
+		universe.world.add_unique(Session::new());
+		universe.world.add_unique(Input::new());
+
+		shipyard::Workload::builder("updates")
+			.with_system(system!(systems::input))
+			.with_system(system!(systems::spawn))
+			.with_system(system!(systems::contactdamage))
+			.with_system(system!(systems::enemyai))
+			.with_system(system!(systems::selfdamage))
+			.with_system(system!(systems::death))
+			.with_system(system!(systems::camera))
+			.with_system(system!(systems::physics))
+			.add_to_world(&universe.world)
 			.unwrap();
-		universe
-			.world
-			.add_unique(Renderer::new(device, queue).await?);
 
 		Ok(universe)
 	}
@@ -64,9 +59,6 @@ impl Universe {
 			all_storages.clear();
 		});
 		self.state.borrow_mut().init(&self);
-		self.keys_down.clear();
-		self.score = 0;
-		self.lifetime = 0.0;
 	}
 
 	pub fn create_swapchain(&mut self, window: &Window, surface: &wgpu::Surface) {
@@ -80,12 +72,6 @@ impl Universe {
 				);
 				renderer.width = window.inner_size().width;
 				renderer.height = window.inner_size().height;
-				// renderer.camera.map(|camera| {
-				// 	(&mut cameras).get(camera).map(|camera| {
-				// 		camera.aspect = window.inner_size().width as f32
-				// 			/ window.inner_size().height as f32;
-				// 	})
-				// });
 			});
 		}
 	}
@@ -94,63 +80,65 @@ impl Universe {
 		let mut state = T::new(&self);
 		state.init(&self);
 		self.state = Box::from(RefCell::new(state));
+		self.world
+			.run(|mut session: UniqueViewMut<Session>| session.clear());
+		self.world
+			.run(|mut input: UniqueViewMut<Input>| input.clear());
 	}
 
+	#[flame]
 	pub fn event(&mut self, event: Event<()>) {
-		match event {
-			Event::WindowEvent {
-				event:
-					winit::event::WindowEvent::KeyboardInput {
-						input:
-							winit::event::KeyboardInput {
-								virtual_keycode,
-								state,
-								..
-							},
-						..
-					},
-				..
-			} => {
-				if let Some(key) = virtual_keycode {
-					if let ElementState::Pressed = state {
-						self.keys_down.insert(key);
+		self.world.run(|mut input: UniqueViewMut<Input>| {
+			match event {
+				Event::WindowEvent {
+					event:
+						winit::event::WindowEvent::KeyboardInput {
+							input:
+								winit::event::KeyboardInput {
+									virtual_keycode,
+									state,
+									..
+								},
+							..
+						},
+					..
+				} => {
+					if let Some(key) = virtual_keycode {
+						if let ElementState::Pressed = state {
+							input.keys_down.insert(key);
+						}
+						if let ElementState::Released = state {
+							input.keys_down.remove(&key);
+						}
 					}
-					if let ElementState::Released = state {
-						self.keys_down.remove(&key);
-					}
-				}
-			},
-			_ => (),
-		};
+				},
+				_ => (),
+			};
+		})
 	}
 
+	#[flame]
 	pub fn update(&mut self) {
-		if self.keys_down.contains(&VirtualKeyCode::R) {
+		let mut reset = false;
+		self.world.run(|input: UniqueView<Input>| {
+			if input.keys_down.contains(&VirtualKeyCode::R) {
+				reset = true;
+			}
+		});
+		if reset {
 			self.reset();
 			return;
 		}
+		self.world
+			.run(|mut timer: UniqueViewMut<Timer>| timer.update());
 
-		self.timer.update();
+		self.world.run_workload("updates");
+
 		self.state.borrow_mut().update(&self);
-
-		self.world.run_with_data(systems::input, &self);
-		self.world.run_with_data(systems::spawn, &self);
-
-		self.world.run_with_data(systems::contactdamage, &self);
-		self.world.run_with_data(systems::enemyai, &self);
-		self.world.run_with_data(systems::selfdamage, &self);
-		self.score += self.world.run_with_data(systems::death, &self);
-
-		self.world.run_with_data(systems::camera, &self);
-		self.world.run_with_data(systems::physics, &self);
-
-
-		self.lifetime += self.timer.delta();
 	}
 
-	pub fn render(&mut self) { self.world.run_with_data(systems::render, &self); }
+	#[flame]
+	pub fn render(&mut self) { self.world.run(systems::render); }
 
-	pub fn get_timer(&mut self) -> &mut FrameAccumTimer { &mut self.timer }
-
-	pub fn get_status(&self) -> String { self.world.run_with_data(systems::status, &self) }
+	pub fn get_status(&self) -> String { self.world.run(systems::status) }
 }

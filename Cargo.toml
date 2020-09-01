@@ -34,6 +34,7 @@ lto = "off"
 opt-level = 1
 
 [profile.release]
+codegen-units = 1
 debug = false
 debug-assertions = false
 incremental = false
@@ -80,12 +81,13 @@ sys-info = "0.7.0"
 # util crates
 anyhow = "1.0.32"
 async-std = { version = "1.6.3", features = ["std", "alloc", "unstable"] }
-bytemuck = "1.4.0"
 cascade = "0.1.4"
 chrono = "0.4.15"
 derive-new = "0.5.8"
 derive_more = "0.99.9"
-glam = { version = "0.9.3", features = ["serde", "mint"] }
+flame = "0.2.2"
+flamer = "0.4.0"
+glam = { version = "0.9.4", features = ["serde", "mint"] }
 include_dir = "0.6.0"
 itertools = "0.9.0"
 rand = "0.7.3"
