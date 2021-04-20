@@ -20,7 +20,6 @@
 	const_fn,
 	const_fn_union,
 	const_generics,
-	const_in_array_repeat_expressions,
 	const_mut_refs,
 	const_panic,
 	const_raw_ptr_deref,
@@ -50,7 +49,6 @@
 	nll,
 	non_ascii_idents,
 	optimize_attribute,
-	optin_builtin_traits,
 	or_patterns,
 	panic_runtime,
 	platform_intrinsics,
@@ -91,7 +89,6 @@
 	hash_raw_entry,
 	ip,
 	is_sorted,
-	linked_list_extras,
 	map_entry_replace,
 	maybe_uninit_ref,
 	maybe_uninit_slice,
@@ -107,8 +104,6 @@
 	try_reserve,
 	try_trait,
 	unsize,
-	vec_remove_item,
-	vec_resize_default,
 	wrapping_next_power_of_two
 )]
 
